@@ -10,34 +10,80 @@
   #wrap { position:relative; width:100vw; height:100vh; background:#000; overflow:hidden; }
   #video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; z-index:1; }
   #overlay { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
-  #hud { position:absolute; top:12px; right:12px; color:#00ff88; font:600 13px monospace;
-    background:rgba(0,0,0,.7); padding:6px 12px; border-radius:16px; z-index:10; }
-  #fps { position:absolute; top:12px; left:12px; color:#00ff88; font:600 11px monospace;
-    background:rgba(0,0,0,.7); padding:5px 9px; border-radius:10px; z-index:10; }
+  #hud { position:absolute; top:12px; right:12px; color:#00ff88; font:600 12px monospace;
+    background:rgba(0,0,0,.5); padding:5px 10px; border-radius:14px; z-index:10;
+    text-shadow:0 0 4px #000; }
+  #fps { position:absolute; top:12px; left:12px; color:#00ff88; font:600 10px monospace;
+    background:rgba(0,0,0,.5); padding:4px 8px; border-radius:10px; z-index:10;
+    text-shadow:0 0 4px #000; }
   #hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#00ff88; font-size:15px; font-weight:700; background:rgba(0,0,0,.85);
-    padding:14px 26px; border-radius:26px; z-index:6; display:none;
-    border:2px solid #00ff88; text-align:center; }
-  #panel { position:absolute; bottom:10px; right:10px; color:#00ff88;
-    font:500 11px ui-monospace,monospace; background:rgba(0,0,0,.88);
-    padding:8px 11px; border-radius:10px; border:1.5px solid #00ff88;
-    z-index:5; display:none; line-height:1.55;
-    max-width:62vw; min-width:180px;
-    backdrop-filter:blur(6px); }
-  #panel .title { color:#fff; font-weight:700; font-size:12px; margin-bottom:4px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #panel .line { display:flex; justify-content:space-between; gap:6px; white-space:nowrap; }
-  #panel .label { color:rgba(0,255,136,.7); }
-  #panel .value { color:#fff; font-weight:700; }
+    color:#00ff88; font-size:14px; font-weight:700; background:rgba(0,0,0,.7);
+    padding:12px 22px; border-radius:22px; z-index:6; display:none;
+    border:1.5px solid #00ff88; text-align:center; }
+
+  /* ═══ شريط البيانات الشفاف على يمين الصورة ═══ */
+  #panel {
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#00ff88;
+    font:600 10.5px ui-monospace, SFMono-Regular, monospace;
+    background:rgba(0,0,0,.22);
+    padding:8px 9px;
+    border-radius:10px;
+    border:1px solid rgba(0,255,136,.35);
+    z-index:5;
+    display:none;
+    line-height:1.5;
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    text-shadow:0 0 5px #000, 0 0 2px #000, 1px 1px 2px #000;
+    pointer-events:none;
+    min-width:112px;
+    max-width:132px;
+  }
+  #panel .title {
+    color:#fff;
+    font-weight:800;
+    font-size:11px;
+    margin-bottom:5px;
+    padding-bottom:4px;
+    border-bottom:1px solid rgba(0,255,136,.3);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #panel .row {
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+    margin:1px 0;
+    white-space:nowrap;
+  }
+  #panel .k { color:rgba(0,255,136,.7); font-size:9.5px; }
+  #panel .v { color:#fff; font-weight:700; }
   #panel .v-right { color:#00e5ff; }
   #panel .v-left  { color:#ff9100; }
   #panel .v-down  { color:#ff5252; }
   #panel .v-up    { color:#b388ff; }
-  #panel .v-zero  { color:#888; }
-  #panel hr { border:0; border-top:1px solid rgba(0,255,136,.25); margin:4px 0; }
-  #resetBtn { position:absolute; top:52px; right:12px; color:#000; background:#00ff88;
-    border:none; padding:8px 14px; border-radius:18px; font:700 12px system-ui;
-    z-index:7; display:none; cursor:pointer; box-shadow:0 3px 12px rgba(0,255,136,.6); }
+  #panel .v-zero  { color:#999; }
+  #panel .sep {
+    height:1px;
+    background:rgba(0,255,136,.25);
+    margin:4px 0;
+  }
+  #panel .sub {
+    color:rgba(0,255,136,.55);
+    font-size:9px;
+    letter-spacing:.5px;
+    margin-top:1px;
+    margin-bottom:1px;
+  }
+
+  #resetBtn { position:absolute; top:44px; right:12px; color:#000; background:rgba(0,255,136,.9);
+    border:none; padding:6px 12px; border-radius:16px; font:700 11px system-ui;
+    z-index:7; display:none; cursor:pointer; box-shadow:0 2px 10px rgba(0,255,136,.5); }
   #startBtn { position:absolute; bottom:40px; left:50%; transform:translateX(-50%);
     padding:18px 50px; font-size:18px; font-weight:700; background:#00ff88; color:#000;
     border:none; border-radius:40px; z-index:10; box-shadow:0 8px 32px rgba(0,255,136,.5);
@@ -56,7 +102,7 @@
   <div id="hud">MokTrak · جاهز</div>
   <div id="fps">-- fps</div>
   <div id="hint">المس الكائن الذي تريد قفله</div>
-  <button id="resetBtn">✕ إلغاء القفل</button>
+  <button id="resetBtn">✕</button>
   <div id="panel"></div>
   <button id="startBtn">▶ تشغيل الكاميرا</button>
   <div id="err"></div>
@@ -78,7 +124,6 @@ window.addEventListener('error', function(ev) {
 
   var SCORE_MIN = 0.35, SMOOTHING = 0.7, LOST_TIMEOUT = 3000;
   var IOU_MIN = 0.15;
-  // لا يوجد انتهاء تلقائي للقفل — يبقى حتى يضغط المستخدم ✕
 
   var video = document.getElementById('video');
   var canvas = document.getElementById('overlay');
@@ -131,20 +176,20 @@ window.addEventListener('error', function(ev) {
   function fmt(n) { return (n >= 0 ? '+' : '') + n.toFixed(0); }
   function absFmt(n) { return Math.abs(n).toFixed(0); }
 
-  function dirClassX(v) {
+  function classX(v) {
     if (Math.abs(v) < 2) return 'v-zero';
     return v > 0 ? 'v-right' : 'v-left';
   }
-  function dirClassY(v) {
+  function classY(v) {
     if (Math.abs(v) < 2) return 'v-zero';
     return v > 0 ? 'v-down' : 'v-up';
   }
   function arrowX(v) {
-    if (Math.abs(v) < 2) return '●';
+    if (Math.abs(v) < 2) return '·';
     return v > 0 ? '→' : '←';
   }
   function arrowY(v) {
-    if (Math.abs(v) < 2) return '●';
+    if (Math.abs(v) < 2) return '·';
     return v > 0 ? '↓' : '↑';
   }
 
@@ -237,7 +282,7 @@ window.addEventListener('error', function(ev) {
       prevT: 0
     };
 
-    hud.textContent = '🎯 مقفل: ' + t.label;
+    hud.textContent = '🎯 ' + t.label;
     resetBtn.style.display = 'block';
     panelEl.style.display = 'block';
     hintEl.style.display = 'none';
@@ -313,8 +358,8 @@ window.addEventListener('error', function(ev) {
 
   function drawScreenCenter(cx, cy) {
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,235,59,.9)';
-    ctx.fillStyle = 'rgba(255,235,59,.9)';
+    ctx.strokeStyle = 'rgba(255,235,59,.85)';
+    ctx.fillStyle = 'rgba(255,235,59,.85)';
     ctx.shadowColor = '#ffeb3b';
     ctx.shadowBlur = 6;
     ctx.lineWidth = 2;
@@ -382,7 +427,6 @@ window.addEventListener('error', function(ev) {
     }
     tracks = fresh;
 
-    // ═══ إيجاد الكائن المقفل — لا يُلغى أبدًا تلقائيًا ═══
     var lockedTrack = null;
     if (lockedId !== null) {
       for (var i = 0; i < tracks.length; i++) {
@@ -394,7 +438,6 @@ window.addEventListener('error', function(ev) {
         lockedLabel = lockedTrack.label;
         lockedScore = lockedTrack.score;
       }
-      // لا إلغاء تلقائي — الصليب يبقى على آخر موضع معروف
     }
 
     if (canvas.width !== Math.round(wrap.getBoundingClientRect().width)) resize();
@@ -402,7 +445,7 @@ window.addEventListener('error', function(ev) {
 
     var fit = getFit();
 
-    // ═══ لا يوجد قفل ═══
+    // ═══ لا قفل ═══
     if (lockedId === null) {
       var top = tracks.slice(0, 2);
       for (var i = 0; i < top.length; i++) {
@@ -439,12 +482,11 @@ window.addEventListener('error', function(ev) {
         var dw = br[0]-tl[0], dh = br[1]-tl[1];
         var objCx = tl[0] + dw/2;
         var objCy = tl[1] + dh/2;
-
         var scx = fit.cx, scy = fit.cy;
 
         // خط من المركز إلى الكائن
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,235,59,.45)';
+        ctx.strokeStyle = 'rgba(255,235,59,.4)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 6]);
         ctx.beginPath();
@@ -462,14 +504,14 @@ window.addEventListener('error', function(ev) {
         ctx.strokeRect(tl[0], tl[1], dw, dh);
         ctx.shadowBlur = 0;
 
-        // صليب على الكائن
+        // صليب الكائن
         var crossSize = Math.max(24, Math.min(dw, dh) * 0.28);
         drawTargetCrosshair(objCx, objCy, crossSize, isLive);
 
-        // علامة مركز الشاشة
+        // مركز الشاشة
         drawScreenCenter(scx, scy);
 
-        // لافتة
+        // لافتة صغيرة فوق الكائن
         var text = '🎯 ' + lockedLabel + ' ' + (lockedScore*100).toFixed(0) + '%';
         ctx.font = 'bold 14px monospace';
         var tw = ctx.measureText(text).width;
@@ -483,10 +525,9 @@ window.addEventListener('error', function(ev) {
         var relX = (x + w/2) - vcx;
         var relY = (y + h/2) - vcy;
 
-        var deltaX = 0, deltaY = 0, dt = 0;
+        var deltaX = 0, deltaY = 0;
         if (isLive) {
           if (lockData.prevT > 0) {
-            dt = Math.max(1, now - lockData.prevT);
             deltaX = relX - lockData.prevRelX;
             deltaY = relY - lockData.prevRelY;
           }
@@ -499,42 +540,48 @@ window.addEventListener('error', function(ev) {
         var totalY = relY - lockData.startRelY;
         var distNow = Math.sqrt(relX*relX + relY*relY);
 
-        // ═══ لوحة صغيرة ═══
+        // ═══ الشريط الشفاف على اليمين ═══
         panelEl.innerHTML =
-          '<div class="title">🎯 ' + lockedLabel + ' ' +
-            (lockedScore*100).toFixed(0) + '%' +
+          '<div class="title">🎯 ' + lockedLabel +
             (isLive ? '' : ' ⏸') + '</div>' +
-          '<div class="line">' +
-            '<span class="label">X</span>' +
-            '<span class="value ' + dirClassX(relX) + '">' +
+
+          '<div class="row">' +
+            '<span class="k">X</span>' +
+            '<span class="v ' + classX(relX) + '">' +
               fmt(relX) + ' ' + arrowX(relX) + '</span>' +
           '</div>' +
-          '<div class="line">' +
-            '<span class="label">Y</span>' +
-            '<span class="value ' + dirClassY(relY) + '">' +
+          '<div class="row">' +
+            '<span class="k">Y</span>' +
+            '<span class="v ' + classY(relY) + '">' +
               fmt(relY) + ' ' + arrowY(relY) + '</span>' +
           '</div>' +
-          '<div class="line">' +
-            '<span class="label">المسافة</span>' +
-            '<span class="value">' + absFmt(distNow) + '</span>' +
+          '<div class="row">' +
+            '<span class="k">مسافة</span>' +
+            '<span class="v">' + absFmt(distNow) + '</span>' +
           '</div>' +
-          '<hr>' +
-          '<div class="line">' +
-            '<span class="label">ΔX</span>' +
-            '<span class="value ' + dirClassX(deltaX) + '">' + fmt(deltaX) + '</span>' +
+
+          '<div class="sep"></div>' +
+
+          '<div class="sub">لحظي</div>' +
+          '<div class="row">' +
+            '<span class="k">ΔX</span>' +
+            '<span class="v ' + classX(deltaX) + '">' + fmt(deltaX) + '</span>' +
           '</div>' +
-          '<div class="line">' +
-            '<span class="label">ΔY</span>' +
-            '<span class="value ' + dirClassY(deltaY) + '">' + fmt(deltaY) + '</span>' +
+          '<div class="row">' +
+            '<span class="k">ΔY</span>' +
+            '<span class="v ' + classY(deltaY) + '">' + fmt(deltaY) + '</span>' +
           '</div>' +
-          '<hr>' +
-          '<div class="line">' +
-            '<span class="label">ΣX</span>' +
-            '<span class="value ' + dirClassX(totalX) + '">' + fmt(totalX) + '</span>' +
+
+          '<div class="sep"></div>' +
+
+          '<div class="sub">كلي</div>' +
+          '<div class="row">' +
+            '<span class="k">ΣX</span>' +
+            '<span class="v ' + classX(totalX) + '">' + fmt(totalX) + '</span>' +
           '</div>' +
-          '<div class="line">' +
-            '<span class="label">ΣY</span>' +
-            '<span class="value ' + dirClassY(totalY) + '">' + fmt(totalY) + '</span>' +
+          '<div class="row">' +
+            '<span class="k">ΣY</span>' +
+            '<span class="v ' + classY(totalY) + '">' + fmt(totalY) + '</span>' +
           '</div>';
       }
     }
