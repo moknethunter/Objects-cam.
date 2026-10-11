@@ -3,681 +3,591 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>MokTrak</title>
+<meta name="theme-color" content="#000000">
+<title>MokTrak Lite</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { height:100%; overflow:hidden; background:#000; font-family:system-ui,sans-serif; }
-  #wrap { position:relative; width:100vw; height:100vh; background:#000; overflow:hidden; }
-  #video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; z-index:1; }
-  #overlay { position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
-  #hud { position:absolute; top:12px; right:12px; color:#00ff88; font:600 12px monospace;
-    background:rgba(0,0,0,.5); padding:5px 10px; border-radius:14px; z-index:10;
-    text-shadow:0 0 4px #000; }
-  #fps { position:absolute; top:12px; left:12px; color:#00ff88; font:600 10px monospace;
-    background:rgba(0,0,0,.5); padding:4px 8px; border-radius:10px; z-index:10;
-    text-shadow:0 0 4px #000; }
-  #hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#00ff88; font-size:14px; font-weight:700; background:rgba(0,0,0,.7);
-    padding:12px 22px; border-radius:22px; z-index:6; display:none;
-    border:1.5px solid #00ff88; text-align:center; }
-
-  #panel {
-    position:absolute;
-    right:6px;
-    top:50%;
-    transform:translateY(-50%);
-    color:#00ff88;
-    font:600 10.5px ui-monospace, SFMono-Regular, monospace;
-    background:rgba(0,0,0,.22);
-    padding:8px 9px;
-    border-radius:10px;
-    border:1px solid rgba(0,255,136,.35);
-    z-index:5;
-    display:none;
-    line-height:1.5;
-    backdrop-filter:blur(2px);
-    -webkit-backdrop-filter:blur(2px);
-    text-shadow:0 0 5px #000, 0 0 2px #000, 1px 1px 2px #000;
-    pointer-events:none;
-    min-width:112px;
-    max-width:132px;
-  }
-  #panel .title { color:#fff; font-weight:800; font-size:11px; margin-bottom:5px;
-    padding-bottom:4px; border-bottom:1px solid rgba(0,255,136,.3);
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  #panel .row { display:flex; justify-content:space-between; gap:6px;
-    margin:1px 0; white-space:nowrap; }
-  #panel .k { color:rgba(0,255,136,.7); font-size:9.5px; }
-  #panel .v { color:#fff; font-weight:700; }
-  #panel .v-right { color:#00e5ff; }
-  #panel .v-left  { color:#ff9100; }
-  #panel .v-down  { color:#ff5252; }
-  #panel .v-up    { color:#b388ff; }
-  #panel .v-zero  { color:#999; }
-  #panel .sep { height:1px; background:rgba(0,255,136,.25); margin:4px 0; }
-  #panel .sub { color:rgba(0,255,136,.55); font-size:9px; letter-spacing:.5px;
-    margin-top:1px; margin-bottom:1px; }
-
-  #resetBtn { position:absolute; top:44px; right:12px; color:#000; background:rgba(0,255,136,.9);
-    border:none; padding:6px 12px; border-radius:16px; font:700 11px system-ui;
-    z-index:7; display:none; cursor:pointer; box-shadow:0 2px 10px rgba(0,255,136,.5); }
-  #startBtn { position:absolute; bottom:40px; left:50%; transform:translateX(-50%);
-    padding:18px 50px; font-size:18px; font-weight:700; background:#00ff88; color:#000;
-    border:none; border-radius:40px; z-index:10; box-shadow:0 8px 32px rgba(0,255,136,.5);
-    cursor:pointer; }
-  #startBtn:disabled { opacity:.6; }
-  #err { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    color:#ff5252; font-size:14px; background:rgba(0,0,0,.92); padding:20px;
-    border-radius:12px; z-index:20; display:none; max-width:90%; text-align:center;
-    border:2px solid #ff5252; }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body,#wrap{width:100%;height:100%;height:100dvh;overflow:hidden;background:#000;font-family:system-ui,sans-serif}
+#wrap{position:relative}
+#video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
+#overlay{position:absolute;inset:0;width:100%;height:100%;z-index:2;touch-action:manipulation}
+#hud,#fps{position:absolute;z-index:5;color:#00ff88;background:#0009;border:1px solid #00ff8844;border-radius:14px;font:600 11px monospace;padding:6px 9px;text-shadow:0 1px 3px #000}
+#hud{top:10px;right:10px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fps{top:10px;left:10px}
+#hint{position:absolute;z-index:5;left:50%;top:50%;transform:translate(-50%,-50%);display:none;background:#000c;border:1px solid #00ff88;color:#00ff88;padding:12px 18px;border-radius:20px;text-align:center;font-size:13px;max-width:85%}
+#panel{position:absolute;z-index:5;right:8px;top:50%;transform:translateY(-50%);display:none;pointer-events:none;min-width:122px;max-width:146px;background:#0009;backdrop-filter:blur(4px);border:1px solid #00ff8855;border-radius:11px;padding:8px;color:#fff;font:11px ui-monospace,monospace;line-height:1.55;text-shadow:0 1px 3px #000}
+#panel .title{font-weight:800;color:#00ff88;border-bottom:1px solid #00ff8844;padding-bottom:4px;margin-bottom:4px}
+.row{display:flex;justify-content:space-between;gap:8px}
+.k{color:#00ff8899}.v{color:#fff;font-weight:700}
+.good{color:#00ff88}.warn{color:#ffca28}.bad{color:#ff5252}
+button{font-family:system-ui,sans-serif;font-weight:700;cursor:pointer}
+#startBtn{position:absolute;z-index:8;bottom:28px;left:50%;transform:translateX(-50%);border:0;border-radius:28px;background:#00ff88;color:#00180d;padding:15px 25px;font-size:16px;box-shadow:0 5px 24px #00ff8844;white-space:nowrap}
+#resetBtn,#switchBtn{position:absolute;z-index:7;top:49px;border:1px solid #00ff8866;border-radius:18px;background:#001a10dd;color:#00ff88;padding:7px 11px;font-size:12px;display:none}
+#resetBtn{right:10px}#switchBtn{right:66px}
+#err{display:none;position:absolute;z-index:20;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;max-width:440px;background:#180000f2;border:1px solid #ff5252;border-radius:12px;padding:16px;color:#ff7777;font-size:13px;line-height:1.6;white-space:pre-wrap}
 </style>
 </head>
 <body>
 <div id="wrap">
   <video id="video" playsinline autoplay muted></video>
   <canvas id="overlay"></canvas>
-  <div id="hud">MokTrak · جاهز</div>
-  <div id="fps">-- fps</div>
-  <div id="hint">المس الكائن الذي تريد قفله</div>
-  <button id="resetBtn">✕</button>
+  <div id="hud">MokTrak Lite · جاهز</div><div id="fps">-- fps</div>
+  <div id="hint">المس الكائن الذي تريد تتبعه</div>
   <div id="panel"></div>
+  <button id="resetBtn">إلغاء القفل ✕</button><button id="switchBtn">تبديل الكاميرا</button>
   <button id="startBtn">▶ تشغيل الكاميرا</button>
   <div id="err"></div>
 </div>
-
-<script>
-window.addEventListener('error', function(ev) {
-  var e = document.getElementById('err');
-  if (e) { e.style.display = 'block'; e.textContent = 'خطأ: ' + (ev.message || 'غير معروف'); }
-});
-</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 
 <script>
 (function(){
-  'use strict';
+'use strict';
+const $=id=>document.getElementById(id);
+const video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d',{alpha:true});
+const wrap=$('wrap'),hud=$('hud'),fpsEl=$('fps'),panel=$('panel');
+const startBtn=$('startBtn'),resetBtn=$('resetBtn'),switchBtn=$('switchBtn');
+const hint=$('hint'),err=$('err');
 
-  // ═══ إعدادات محسّنة ═══
-  var SCORE_MIN        = 0.35;   // عتبة الثقة
-  var SMOOTHING        = 0.5;    // أسرع استجابة (كان 0.7) → تتبع أدق للحركة
-  var LOST_TIMEOUT     = 3000;
-  var IOU_MIN          = 0.08;   // أكثر تسامحًا (كان 0.15) → استمرارية أفضل
-  var MAX_PREDICT_MS   = 500;    // التنبؤ بالحركة حتى 500ms
-  var BOX_INSET        = 0.88;   // تصغير الصندوق المرئي إلى 88% من الكشف
+// ═══ الإعدادات الجديدة — أخف وأدق ═══
+const CFG={
+  // الكشف
+  minScore:0.42,
+  detectEveryMs:320,
+  detectSize:416,          // دقة داخلية للموديل (أسرع من 640)
+  detectMax:5,
+  // التتبع البصري (SAD)
+  patchHalf:22,            // 22 → رقعة 45×45
+  searchHalf:12,           // نافذة بحث ±12 px
+  templateUpdateFrames:14, // تحديث القالب كل 14 إطار
+  sadThreshold:3800,       // عتبة قبول التطابق
+  // التنعيم
+  smoothing:0.62,
+  // الاستعادة
+  maxLostMs:1400,
+  maxPredictMs:520,
+  reacquireR:1.5,
+  // الأداء
+  grayW:320,               // عرض الصورة الرمادية المصغرة
+  grayH:240,
+  frameIntervalMs:26
+};
 
-  var video = document.getElementById('video');
-  var canvas = document.getElementById('overlay');
-  var ctx = canvas.getContext('2d');
-  var hud = document.getElementById('hud');
-  var fpsEl = document.getElementById('fps');
-  var startBtn = document.getElementById('startBtn');
-  var panelEl = document.getElementById('panel');
-  var hintEl = document.getElementById('hint');
-  var resetBtn = document.getElementById('resetBtn');
-  var wrap = document.getElementById('wrap');
-  var errEl = document.getElementById('err');
+let model=null,stream=null,running=false,facing='environment',busy=false;
+let tracks=[],nextId=1,lockedId=null,selected=null;
+let lastDetect=0,lastFrame=0,fpsN=0,fpsT=performance.now();
+let rafId=0,lastTap=0,lockOrigin=null;
+let frameCount=0;
 
-  var model = null;
-  var running = false;
-  var nextId = 1;
-  var tracks = [];
-  var lastFps = performance.now();
-  var fpsCount = 0;
+// ═══ رقعة التتبع ═══
+let template=null;          // Float32Array أو Uint8Array
+let templateBox=null;       // الموقع الذي أُخذت منه الرقعة
+let templateW=0,templateH=0;
+let lastTrackedPos=null;    // [x,y] في إحداثيات الفيديو
 
-  var lockedId = null;
-  var lockedLastBox = null;
-  var lockedLastSeen = 0;
-  var lockedLabel = '', lockedScore = 0;
-  var lockData = null;
+// ═══ canvas الرمادي ═══
+const grayCanvas=document.createElement('canvas');
+grayCanvas.width=CFG.grayW; grayCanvas.height=CFG.grayH;
+const grayCtx=grayCanvas.getContext('2d',{willReadFrequently:true});
+let grayData=null;
 
-  function resize() {
-    var r = wrap.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) {
-      canvas.width = Math.round(r.width);
-      canvas.height = Math.round(r.height);
+// ═══ أدوات ═══
+function showError(m){err.style.display='block';err.textContent=m}
+function hideError(){err.style.display='none'}
+function resize(){
+  const r=wrap.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=Math.max(1,Math.round(r.width*dpr));
+  canvas.height=Math.max(1,Math.round(r.height*dpr));
+  canvas.style.width=r.width+'px';canvas.style.height=r.height+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,350));
+resize();
+
+function fit(){
+  const r=wrap.getBoundingClientRect(),vw=video.videoWidth||640,vh=video.videoHeight||480;
+  const scale=Math.max(r.width/vw,r.height/vh);
+  return {scale,ox:(r.width-vw*scale)/2,oy:(r.height-vh*scale)/2,vw,vh,w:r.width,h:r.height};
+}
+function v2s(x,y,f){return [f.ox+x*f.scale,f.oy+y*f.scale]}
+function s2v(clientX,clientY){
+  const r=canvas.getBoundingClientRect(),f=fit();
+  return [(clientX-r.left-f.ox)/f.scale,(clientY-r.top-f.oy)/f.scale];
+}
+function clampBox(b){
+  const W=video.videoWidth||640,H=video.videoHeight||480;
+  const w=Math.max(8,Math.min(W,b[2])),h=Math.max(8,Math.min(H,b[3]));
+  return [Math.max(0,Math.min(W-w,b[0])),Math.max(0,Math.min(H-h,b[1])),w,h];
+}
+function center(b){return [b[0]+b[2]/2,b[1]+b[3]/2]}
+function dist(a,b){return Math.hypot(a[0]-b[0],a[1]-b[1])}
+function iou(a,b){
+  const x1=Math.max(a[0],b[0]),y1=Math.max(a[1],b[1]);
+  const x2=Math.min(a[0]+a[2],b[0]+b[2]),y2=Math.min(a[1]+a[3],b[1]+b[3]);
+  const inter=Math.max(0,x2-x1)*Math.max(0,y2-y1);
+  return inter/(a[2]*a[3]+b[2]*b[3]-inter||1);
+}
+function smoothBox(o,n,a){return o.map((v,i)=>v*(1-a)+n[i]*a)}
+
+// ═══ استخراج الصورة الرمادية المصغرة (سريع) ═══
+function grabGray(){
+  if(video.readyState<2)return null;
+  grayCtx.drawImage(video,0,0,CFG.grayW,CFG.grayH);
+  const img=grayCtx.getImageData(0,0,CFG.grayW,CFG.grayH);
+  if(!grayData||grayData.length!==img.data.length)grayData=new Uint8ClampedArray(img.data.length);
+  grayData.set(img.data);
+  return grayData;
+}
+
+// ═══ استخراج رقعة رمادية صغيرة ═══
+function extractPatch(gray,cx,cy,half){
+  // cx,cy في إحداثيات الصورة المصغرة
+  const x0=Math.round(cx-half),y0=Math.round(cy-half);
+  const size=half*2+1;
+  const patch=new Uint8Array(size*size);
+  for(let y=0;y<size;y++){
+    const sy=y0+y;
+    if(sy<0||sy>=CFG.grayH)continue;
+    for(let x=0;x<size;x++){
+      const sx=x0+x;
+      if(sx<0||sx>=CFG.grayW)continue;
+      const idx=(sy*CFG.grayW+sx)*4;
+      // تحويل سريع للرمادي: (R*77+G*150+B*29)>>8
+      patch[y*size+x]=(gray[idx]*77+gray[idx+1]*150+gray[idx+2]*29)>>8;
     }
   }
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', function(){ setTimeout(resize, 300); });
-  resize();
+  return {patch,x0,y0,size};
+}
 
-  // ═══ IoU بين صندوقين ═══
-  function iou(a, b) {
-    var x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
-    var x2 = Math.min(a[0]+a[2], b[0]+b[2]);
-    var y2 = Math.min(a[1]+a[3], b[1]+b[3]);
-    var i = Math.max(0, x2-x1) * Math.max(0, y2-y1);
-    var u = a[2]*a[3] + b[2]*b[3] - i;
-    return u > 0 ? i/u : 0;
+// ═══ SAD بين رقعتين ═══
+function sad(a,b,size){
+  let s=0;
+  for(let i=0;i<a.length;i++){
+    const d=a[i]-b[i];
+    s+=d<0?-d:d;
   }
+  return s/(size*size);
+}
 
-  // ═══ مسافة مركزية بين صندوقين (مساعد للتتبع الأدق) ═══
-  function centerDist(a, b) {
-    var ax = a[0] + a[2]/2, ay = a[1] + a[3]/2;
-    var bx = b[0] + b[2]/2, by = b[1] + b[3]/2;
-    return Math.sqrt((ax-bx)*(ax-bx) + (ay-by)*(ay-by));
-  }
+// ═══ متتبع SAD — يجد أفضل تطابق في نافذة بحث ═══
+function trackPatch(gray){
+  if(!template||!templateBox||!gray)return null;
+  const cx=templateBox.cx,cy=templateBox.cy;
+  const half=CFG.patchHalf;
+  const sHalf=CFG.searchHalf;
+  const size=half*2+1;
 
-  // ═══ تنعيم EMA ═══
-  function smooth(p, n) {
-    var a = SMOOTHING, b = 1 - SMOOTHING;
-    return [p[0]*a+n[0]*b, p[1]*a+n[1]*b, p[2]*a+n[2]*b, p[3]*a+n[3]*b];
-  }
+  let bestSAD=Infinity,bestX=cx,bestY=cy;
 
-  // ═══ تصغير الصندوق المرئي (تضييق داخلي) ═══
-  function insetBox(box, factor) {
-    var cx = box[0] + box[2]/2;
-    var cy = box[1] + box[3]/2;
-    var w = box[2] * factor;
-    var h = box[3] * factor;
-    return [cx - w/2, cy - h/2, w, h];
+  // بحث هرمي: أول 4px، ثم دقيق
+  const step1=3;
+  for(let dy=-sHalf;dy<=sHalf;dy+=step1){
+    for(let dx=-sHalf;dx<=sHalf;dx+=step1){
+      const p=extractPatch(gray,cx+dx,cy+dy,half);
+      const s=sad(template,p.patch,size);
+      if(s<bestSAD){bestSAD=s;bestX=cx+dx;bestY=cy+dy}
+    }
   }
-
-  function fmt(n) { return (n >= 0 ? '+' : '') + n.toFixed(0); }
-  function absFmt(n) { return Math.abs(n).toFixed(0); }
-
-  function classX(v) {
-    if (Math.abs(v) < 2) return 'v-zero';
-    return v > 0 ? 'v-right' : 'v-left';
-  }
-  function classY(v) {
-    if (Math.abs(v) < 2) return 'v-zero';
-    return v > 0 ? 'v-down' : 'v-up';
-  }
-  function arrowX(v) {
-    if (Math.abs(v) < 2) return '·';
-    return v > 0 ? '→' : '←';
-  }
-  function arrowY(v) {
-    if (Math.abs(v) < 2) return '·';
-    return v > 0 ? '↓' : '↑';
+  // تحسين دقيق حول الأفضل
+  for(let dy=-step1+1;dy<step1;dy++){
+    for(let dx=-step1+1;dx<step1;dx++){
+      if(dx===0&&dy===0)continue;
+      const p=extractPatch(gray,bestX+dx,bestY+dy,half);
+      const s=sad(template,p.patch,size);
+      if(s<bestSAD){bestSAD=s;bestX=bestX+dx;bestY=bestY+dy}
+    }
   }
 
-  function getFit() {
-    var wrapW = canvas.width, wrapH = canvas.height;
-    var vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-    var scale = Math.max(wrapW/vw, wrapH/vh);
-    return {
-      scale: scale,
-      ox: (wrapW - vw*scale) / 2,
-      oy: (wrapH - vh*scale) / 2,
-      vw: vw, vh: vh,
-      cx: wrapW/2, cy: wrapH/2
-    };
-  }
-  function v2c(px, py, fit) {
-    return [fit.ox + px*fit.scale, fit.oy + py*fit.scale];
-  }
-  function touchToVideo(clientX, clientY) {
-    var r = canvas.getBoundingClientRect();
-    var sx = (clientX - r.left) * (canvas.width / r.width);
-    var sy = (clientY - r.top) * (canvas.height / r.height);
-    var fit = getFit();
-    return [(sx - fit.ox) / fit.scale, (sy - fit.oy) / fit.scale];
-  }
+  if(bestSAD>CFG.sadThreshold)return null;
+  return {x:bestX,y:bestY,sad:bestSAD};
+}
 
-  async function start() {
-    startBtn.disabled = true;
-    startBtn.textContent = '… تحميل';
-    hud.textContent = 'تحميل الموديل…';
-    errEl.style.display = 'none';
+// ═══ تحديث القالب ═══
+function updateTemplate(gray,cx,cy){
+  const p=extractPatch(gray,cx,cy,CFG.patchHalf);
+  template=p.patch.slice();
+  templateBox={cx,cy};
+}
 
-    try {
-      if (typeof cocoSsd === 'undefined') {
-        throw new Error('فشل تحميل الموديل - تحقق من الإنترنت');
+// ═══ تحويل إحداثيات الفيديو إلى إحداثيات الرقعة المصغرة ═══
+function videoToGray(x,y){
+  return [x*CFG.grayW/(video.videoWidth||640),y*CFG.grayH/(video.videoHeight||480)];
+}
+function grayToVideo(x,y){
+  return [x*(video.videoWidth||640)/CFG.grayW,y*(video.videoHeight||480)/CFG.grayH];
+}
+
+// ═══ حالة القفل ═══
+function lockOn(t){
+  lockedId=t.id;
+  selected={
+    id:t.id,label:t.label,score:t.score,box:t.box.slice(),
+    velocity:[0,0],lastSeen:performance.now(),live:true
+  };
+  lockOrigin=center(t.box);
+  resetBtn.style.display='block';
+  switchBtn.style.display='block';
+  panel.style.display='block';
+  hint.style.display='none';
+  hud.textContent='🎯 تتبع: '+selected.label;
+  // إعداد القالب
+  const gray=grabGray();
+  if(gray){
+    const [gx,gy]=videoToGray(selected.box[0]+selected.box[2]/2,selected.box[1]+selected.box[3]/2);
+    updateTemplate(gray,gx,gy);
+    lastTrackedPos=[gx,gy];
+  }
+}
+
+function unlock(){
+  lockedId=null;selected=null;lockOrigin=null;
+  template=null;templateBox=null;lastTrackedPos=null;
+  resetBtn.style.display='none';
+  switchBtn.style.display='none';
+  panel.style.display='none';
+  hud.textContent='MokTrak Lite · جاهز';
+}
+
+function chooseAt(clientX,clientY){
+  const p=s2v(clientX,clientY);
+  let best=null,bestD=Infinity;
+  for(const t of tracks){
+    const b=t.box;
+    const inside=p[0]>=b[0]&&p[0]<=b[0]+b[2]&&p[1]>=b[1]&&p[1]<=b[1]+b[3];
+    const d=dist(p,center(b));
+    const score=inside?d-10000:d;
+    if(score<bestD){bestD=score;best=t}
+  }
+  if(best&&bestD<Math.max(180,Math.hypot(best.box[2],best.box[3])))lockOn(best);
+  else if(lockedId!==null)unlock();
+}
+
+canvas.addEventListener('pointerup',e=>{
+  if(!running||e.target===startBtn)return;
+  const now=performance.now();
+  if(now-lastTap<250)return;
+  lastTap=now;
+  chooseAt(e.clientX,e.clientY);
+});
+resetBtn.addEventListener('click',e=>{e.stopPropagation();unlock()});
+
+// ═══ الكشف ═══
+async function detect(now){
+  if(!model||video.readyState<2)return;
+  // نمرر الفيديو كاملًا لكن الموديل يقصّ داخليًا إلى detectSize
+  const preds=await model.detect(video,CFG.detectMax*2,CFG.minScore);
+  const used=new Set(),fresh=[];
+  for(const p of preds.slice(0,CFG.detectMax)){
+    const d={label:p.class,score:p.score,box:p.bbox.slice(),lastSeen:now,velocity:[0,0],live:true};
+    let best=null,bestS=-Infinity;
+    for(const t of tracks){
+      if(used.has(t.id))continue;
+      const same=t.label===d.label,over=iou(t.box,d.box);
+      const dc=dist(center(t.box),center(d.box))/Math.max(50,Math.hypot(t.box[2],t.box[3]));
+      const s=over*1.8+Math.max(0,1-dc)*0.6+(same?0.6:-1);
+      if(s>bestS&&same&&dc<1.5){best=t;bestS=s}
+    }
+    if(best){
+      used.add(best.id);
+      const b=smoothBox(best.box,d.box,0.58);
+      fresh.push({...best,box:b,label:d.label,score:d.score,lastSeen:now,live:true});
+    }else{
+      fresh.push({...d,id:nextId++});
+    }
+  }
+  tracks=fresh;
+  lastDetect=now;
+
+  // ═══ إعادة اكتساب الكائن المقفل ═══
+  if(lockedId!==null&&selected){
+    const c=center(selected.box);
+    let bestD=null,bestScore=-Infinity;
+    for(const d of preds){
+      if(d.class!==selected.label)continue;
+      const dc=center(d.bbox);
+      const n=dist(c,dc)/Math.max(40,Math.hypot(selected.box[2],selected.box[3]));
+      if(n>CFG.reacquireR)continue;
+      const over=iou(selected.box,d.bbox);
+      const s=over*2+Math.max(0,1-n)*0.8;
+      if(s>bestScore){bestScore=s;bestD=d}
+    }
+    if(bestD){
+      selected.box=smoothBox(selected.box,bestD.bbox,0.5);
+      selected.score=bestD.score;
+      selected.lastSeen=now;
+      selected.live=true;
+      // إعادة تحديث القالب عند إعادة الاكتشاف
+      const gray=grabGray();
+      if(gray&&frameCount%CFG.templateUpdateFrames===0){
+        const [gx,gy]=videoToGray(bestD.bbox[0]+bestD.bbox[2]/2,bestD.bbox[1]+bestD.bbox[3]/2);
+        updateTemplate(gray,gx,gy);
       }
-      model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-
-      hud.textContent = 'تشغيل الكاميرا…';
-      var stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' },
-                 width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false
-      });
-
-      video.srcObject = stream;
-      await new Promise(function(r){ video.onloadedmetadata = r; });
-      await video.play();
-
-      startBtn.style.display = 'none';
-      hud.textContent = 'MokTrak · جاهز';
-      running = true;
-      resize();
-
-      setTimeout(function(){
-        if (!lockedId) {
-          hintEl.style.display = 'block';
-          setTimeout(function(){ hintEl.style.display = 'none'; }, 4500);
-        }
-      }, 1200);
-
-      loop();
-    } catch (e) {
-      errEl.style.display = 'block';
-      errEl.textContent = 'خطأ: ' + e.message;
-      hud.textContent = 'فشل التشغيل';
-      startBtn.disabled = false;
-      startBtn.textContent = '↻ إعادة المحاولة';
     }
   }
+}
 
-  function lockOn(t) {
-    var x = t.box[0], y = t.box[1], w = t.box[2], h = t.box[3];
-    lockedId = t.id;
-    lockedLastBox = [x, y, w, h];
-    lockedLastSeen = performance.now();
-    lockedLabel = t.label;
-    lockedScore = t.score;
+// ═══ التتبع البصري بـ SAD ═══
+function runPatchTracking(now){
+  if(lockedId===null||!selected||!template)return;
+  const gray=grabGray();
+  if(!gray)return;
 
-    var fit = getFit();
-    var vcx = fit.vw / 2, vcy = fit.vh / 2;
-    var relX0 = (x + w/2) - vcx;
-    var relY0 = (y + h/2) - vcy;
+  const res=trackPatch(gray);
+  if(res){
+    // نجح التتبع
+    const [vx,vy]=grayToVideo(res.x,res.y);
+    const newBox=[
+      vx-selected.box[2]/2,
+      vy-selected.box[3]/2,
+      selected.box[2],
+      selected.box[3]
+    ];
+    const old=selected.box.slice();
+    selected.box=smoothBox(old,newBox,CFG.smoothing);
+    selected.velocity=[
+      selected.velocity[0]*0.4+(res.x-lastTrackedPos[0])*0.6,
+      selected.velocity[1]*0.4+(res.y-lastTrackedPos[1])*0.6
+    ];
+    lastTrackedPos=[res.x,res.y];
+    selected.lastSeen=now;
+    selected.live=true;
 
-    lockData = {
-      startRelX: relX0,
-      startRelY: relY0,
-      prevRelX: relX0,
-      prevRelY: relY0,
-      prevT: 0
-    };
-
-    hud.textContent = '🎯 ' + t.label;
-    resetBtn.style.display = 'block';
-    panelEl.style.display = 'block';
-    hintEl.style.display = 'none';
-  }
-
-  function unlock() {
-    lockedId = null; lockedLastBox = null; lockData = null;
-    lockedLabel = ''; lockedScore = 0;
-    resetBtn.style.display = 'none';
-    panelEl.style.display = 'none';
-    hud.textContent = 'MokTrak · جاهز';
-  }
-
-  wrap.addEventListener('click', function(e){
-    if (!running) return;
-    if (e.target === startBtn || e.target === resetBtn) return;
-    if (e.target === errEl) return;
-
-    var p = touchToVideo(e.clientX, e.clientY);
-    var px = p[0], py = p[1];
-
-    var best = null, bestScore = Infinity;
-    for (var i = 0; i < tracks.length; i++) {
-      var t = tracks[i];
-      var x = t.box[0], y = t.box[1], w = t.box[2], h = t.box[3];
-      var cx = x + w/2, cy = y + h/2;
-      var d = Math.sqrt((cx-px)*(cx-px) + (cy-py)*(cy-py));
-      var inside = px >= x && px <= x+w && py >= y && py <= y+h;
-      var score = inside ? d - 1000 : d;
-      if (score < bestScore) { bestScore = score; best = t; }
+    // تحديث دوري للقالب
+    if(frameCount%CFG.templateUpdateFrames===0){
+      updateTemplate(gray,res.x,res.y);
     }
-    if (best && bestScore < 350) lockOn(best);
-    else unlock();
-  });
-  resetBtn.addEventListener('click', function(e){ e.stopPropagation(); unlock(); });
+    templateBox={cx:res.x,cy:res.y};
+  }else{
+    // فشل التتبع → تنبؤ
+    const age=now-selected.lastSeen;
+    if(age>CFG.maxLostMs){selected.live=false}
+  }
+}
 
-  // ═══ صليب صغير وأنيق ═══
-  function drawTargetCrosshair(cx, cy, size, live) {
+// ═══ الرسم ═══
+function drawCross(cx,cy,size,live){
+  ctx.save();
+  ctx.strokeStyle=live?'#00ff88':'#ffca28';
+  ctx.fillStyle=ctx.strokeStyle;
+  ctx.shadowColor=ctx.strokeStyle;
+  ctx.shadowBlur=live?9:3;
+  ctx.lineWidth=2;
+  const g=size*.28,a=size;
+  ctx.beginPath();
+  ctx.moveTo(cx-a,cy);ctx.lineTo(cx-g,cy);
+  ctx.moveTo(cx+g,cy);ctx.lineTo(cx+a,cy);
+  ctx.moveTo(cx,cy-a);ctx.lineTo(cx,cy-g);
+  ctx.moveTo(cx,cy+g);ctx.lineTo(cx,cy+a);
+  ctx.stroke();
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(cx,cy,g*.9,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,2,0,Math.PI*2);ctx.fill();
+  ctx.lineWidth=2;
+  for(let k=0;k<4;k++){
+    const ang=k*Math.PI/2+Math.PI/4;
+    ctx.beginPath();
+    ctx.arc(cx,cy,a+4,ang-.18,ang+.18);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawBox(b,live,label,score){
+  const f=fit(),p=v2s(b[0],b[1],f),q=v2s(b[0]+b[2],b[1]+b[3],f);
+  const x=p[0],y=p[1],w=q[0]-p[0],h=q[1]-p[1];
+  ctx.save();
+  ctx.strokeStyle=live?'#00ff88':'#ffca28';
+  ctx.lineWidth=1.7;
+  ctx.setLineDash(live?[]:[5,5]);
+  ctx.shadowColor=ctx.strokeStyle;
+  ctx.shadowBlur=live?6:0;
+  ctx.strokeRect(x,y,w,h);
+  ctx.setLineDash([]);
+  const c=Math.max(5,Math.min(w,h)*.13);
+  ctx.lineWidth=2.7;
+  ctx.beginPath();
+  ctx.moveTo(x,y+c);ctx.lineTo(x,y);ctx.lineTo(x+c,y);
+  ctx.moveTo(x+w-c,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+c);
+  ctx.moveTo(x+w,y+h-c);ctx.lineTo(x+w,y+h);ctx.lineTo(x+w-c,y+h);
+  ctx.moveTo(x+c,y+h);ctx.lineTo(x,y+h);ctx.lineTo(x,y+h-c);
+  ctx.stroke();
+  ctx.restore();
+  if(label){
+    const text=(live?'● ':'◌ ')+label+' '+Math.round((score||0)*100)+'%';
     ctx.save();
-    ctx.strokeStyle = live ? '#00ff88' : 'rgba(0,255,136,.65)';
-    ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = live ? 8 : 4;
-
-    var gap = size*0.28, arm = size;
-
-    // 4 خطوط قصيرة
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx-arm, cy); ctx.lineTo(cx-gap, cy);
-    ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+arm, cy);
-    ctx.moveTo(cx, cy-arm); ctx.lineTo(cx, cy-gap);
-    ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+arm);
-    ctx.stroke();
-
-    // دائرة صغيرة
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, gap*0.9, 0, Math.PI*2);
-    ctx.stroke();
-
-    // نقطة مركزية
-    ctx.fillStyle = live ? '#00ff88' : 'rgba(0,255,136,.65)';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 1.8, 0, Math.PI*2);
-    ctx.fill();
-
-    // 4 أقواس زاوية صغيرة
-    ctx.lineWidth = 2;
-    var r2 = arm + 3, arcLen = Math.PI/5;
-    for (var k = 0; k < 4; k++) {
-      var base = k*Math.PI/2 + Math.PI/4 - arcLen/2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r2, base, base+arcLen);
-      ctx.stroke();
-    }
+    ctx.font='bold 12px monospace';
+    const tw=ctx.measureText(text).width;
+    const ly=Math.max(4,y-23);
+    ctx.fillStyle=live?'#00ff88':'#ffca28';
+    ctx.fillRect(x,ly,tw+12,21);
+    ctx.fillStyle='#00140a';
+    ctx.fillText(text,x+6,ly+14);
     ctx.restore();
   }
+  return {cx:x+w/2,cy:y+h/2,x,y,w,h};
+}
 
-  function drawScreenCenter(cx, cy) {
+function updatePanel(now){
+  if(!selected)return;
+  const c=center(selected.box);
+  const vx=selected.velocity[0],vy=selected.velocity[1];
+  const relX=c[0]-(video.videoWidth/2),relY=c[1]-(video.videoHeight/2);
+  const ox=lockOrigin?c[0]-lockOrigin[0]:0,oy=lockOrigin?c[1]-lockOrigin[1]:0;
+  const speed=Math.hypot(vx,vy)*(video.videoWidth/CFG.grayW);
+  const age=now-selected.lastSeen;
+  let status=selected.live?'تتبع نشط':'استعادة',cls=selected.live?'good':'warn';
+  if(age>CFG.maxLostMs){status='فُقد';cls='bad'}
+  panel.innerHTML='<div class="title">🎯 '+selected.label+'</div>'+
+    '<div class="row"><span class="k">الحالة</span><span class="'+cls+'">'+status+'</span></div>'+
+    '<div class="row"><span class="k">X</span><span class="v">'+relX.toFixed(0)+'</span></div>'+
+    '<div class="row"><span class="k">Y</span><span class="v">'+relY.toFixed(0)+'</span></div>'+
+    '<div class="row"><span class="k">ΔX</span><span class="v">'+(ox>=0?'+':'')+ox.toFixed(0)+'</span></div>'+
+    '<div class="row"><span class="k">ΔY</span><span class="v">'+(oy>=0?'+':'')+oy.toFixed(0)+'</span></div>'+
+    '<div class="row"><span class="k">السرعة</span><span class="v">'+speed.toFixed(0)+'</span></div>';
+}
+
+function render(now){
+  const r=wrap.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  if(lockedId!==null&&selected){
+    const age=now-selected.lastSeen;
+    let b=selected.box.slice(),live=selected.live&&age<CFG.maxLostMs;
+    if(!live&&age<=CFG.maxPredictMs){
+      const dt=Math.min(CFG.maxPredictMs,age)/1000;
+      const scaleVx=selected.velocity[0]*(video.videoWidth/CFG.grayW);
+      const scaleVy=selected.velocity[1]*(video.videoHeight/CFG.grayH);
+      b=clampBox([b[0]+scaleVx*dt,b[1]+scaleVy*dt,b[2],b[3]]);
+    }
+    const d=drawBox(b,live,selected.label,selected.score);
+    drawCross(d.cx,d.cy,Math.max(13,Math.min(d.w,d.h)*.11),live);
+    const f=fit();
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,235,59,.85)';
-    ctx.fillStyle = 'rgba(255,235,59,.85)';
-    ctx.shadowColor = '#ffeb3b';
-    ctx.shadowBlur = 6;
-    ctx.lineWidth = 1.5;
-
-    var s = 10, gap = 3;
+    ctx.strokeStyle='#ffeb3b99';ctx.lineWidth=1;ctx.setLineDash([4,5]);
+    ctx.beginPath();ctx.moveTo(f.w/2,f.h/2);ctx.lineTo(d.cx,d.cy);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle='#ffeb3b';
     ctx.beginPath();
-    ctx.moveTo(cx-s, cy); ctx.lineTo(cx-gap, cy);
-    ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+s, cy);
-    ctx.moveTo(cx, cy-s); ctx.lineTo(cx, cy-gap);
-    ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+s);
+    ctx.moveTo(f.w/2-8,f.h/2);ctx.lineTo(f.w/2+8,f.h/2);
+    ctx.moveTo(f.w/2,f.h/2-8);ctx.lineTo(f.w/2,f.h/2+8);
     ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 1.5, 0, Math.PI*2);
-    ctx.fill();
     ctx.restore();
+    updatePanel(now);
+    hud.textContent=live?'🎯 '+selected.label+' · تتبع':'⚠ '+selected.label+' · استعادة';
+  }else{
+    for(const t of tracks.slice(0,6))drawBox(t.box,true,t.label,t.score);
   }
+}
 
-  async function loop() {
-    if (!running) return;
-
-    var now = performance.now();
-    fpsCount++;
-    if (now - lastFps >= 1000) {
-      fpsEl.textContent = fpsCount + ' fps';
-      fpsCount = 0; lastFps = now;
-    }
-
-    var preds = [];
-    try { preds = await model.detect(video, 8, SCORE_MIN); } catch(e){}
-
-    var dets = [];
-    for (var i = 0; i < preds.length; i++) {
-      var p = preds[i];
-      dets.push({ label: p.class, score: p.score, box: p.bbox,
-                  area: p.bbox[2]*p.bbox[3] });
-    }
-    dets.sort(function(a,b){ return b.area - a.area; });
-    dets = dets.slice(0, 5);
-
-    // ═══ مطابقة مُحسّنة: IoU + مسافة مركزية + تنبؤ بالسرعة ═══
-    var used = [];
-    for (var i = 0; i < tracks.length; i++) used.push(false);
-    var fresh = [];
-
-    for (var i = 0; i < dets.length; i++) {
-      var d = dets[i];
-      var bi = -1, biou = IOU_MIN;
-      var bestDist = Infinity;
-
-      for (var j = 0; j < tracks.length; j++) {
-        if (used[j]) continue;
-        var t = tracks[j];
-
-        // التنبؤ بالموضع المتوقع بناءً على السرعة
-        var predBox = t.box.slice();
-        if (t.velocity && t.lastSeen) {
-          var dtPredict = Math.min(MAX_PREDICT_MS, now - t.lastSeen);
-          predBox[0] += t.velocity[0] * dtPredict / 1000;
-          predBox[1] += t.velocity[1] * dtPredict / 1000;
-        }
-
-        // IoU مع الصندوق المتوقع (أدق من الحالي)
-        var v = iou(predBox, d.box);
-
-        // مسافة مركزية كمساعد
-        var cd = centerDist(t.box, d.box);
-        var cdNorm = cd / Math.max(t.box[2], t.box[3], 50);
-
-        // دمج: IoU مرتفع أو (مسافة صغيرة + حجم مشابه)
-        var sizeRatio = Math.min(t.box[2]*t.box[3], d.area) /
-                        Math.max(t.box[2]*t.box[3], d.area);
-
-        var score = v * 2 + (1 - Math.min(1, cdNorm)) * 0.5 + sizeRatio * 0.5;
-
-        if (score > biou || (v > IOU_MIN && cd < bestDist)) {
-          if (score > biou || (v > IOU_MIN && cd < bestDist * 0.8)) {
-            biou = Math.max(biou, score);
-            bi = j;
-            bestDist = cd;
-          }
-        }
-      }
-
-      if (bi >= 0) {
-        used[bi] = true;
-        var t = tracks[bi];
-        var smoothed = smooth(t.box, d.box);
-
-        // حساب السرعة الحالية
-        var vel = t.velocity || [0, 0];
-        if (t.lastSeen) {
-          var dtv = Math.max(1, now - t.lastSeen);
-          var vx = (d.box[0] - t.box[0]) / dtv * 1000;
-          var vy = (d.box[1] - t.box[1]) / dtv * 1000;
-          vel = [vel[0]*0.4 + vx*0.6, vel[1]*0.4 + vy*0.6];
-        }
-
-        fresh.push({
-          id: t.id,
-          box: smoothed,
-          label: d.label,
-          score: d.score,
-          lastSeen: now,
-          velocity: vel
-        });
-      } else {
-        fresh.push({
-          id: nextId++,
-          box: d.box.slice(),
-          label: d.label,
-          score: d.score,
-          lastSeen: now,
-          velocity: [0, 0]
-        });
-      }
-    }
-
-    // ═══ الاحتفاظ بالمسارات المفقودة مع التنبؤ ═══
-    for (var i = 0; i < tracks.length; i++) {
-      if (used[i]) continue;
-      var t = tracks[i];
-      var age = now - t.lastSeen;
-      if (age < LOST_TIMEOUT) {
-        // تنبؤ: حرّك الصندوق حسب السرعة
-        var predBox = t.box.slice();
-        if (t.velocity) {
-          var dtP = Math.min(MAX_PREDICT_MS, age);
-          predBox[0] += t.velocity[0] * dtP / 1000;
-          predBox[1] += t.velocity[1] * dtP / 1000;
-        }
-        t.box = predBox;
-        // تقليل تدريجي للثقة
-        t.score *= 0.95;
-        fresh.push(t);
-      }
-    }
-    tracks = fresh;
-
-    var lockedTrack = null;
-    if (lockedId !== null) {
-      for (var i = 0; i < tracks.length; i++) {
-        if (tracks[i].id === lockedId) { lockedTrack = tracks[i]; break; }
-      }
-      if (lockedTrack) {
-        lockedLastSeen = now;
-        lockedLastBox = lockedTrack.box.slice();
-        lockedLabel = lockedTrack.label;
-        lockedScore = lockedTrack.score;
-      }
-    }
-
-    if (canvas.width !== Math.round(wrap.getBoundingClientRect().width)) resize();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    var fit = getFit();
-
-    // ═══ لا قفل ═══
-    if (lockedId === null) {
-      var top = tracks.slice(0, 2);
-      for (var i = 0; i < top.length; i++) {
-        var t = top[i];
-        var tight = insetBox(t.box, BOX_INSET);   // صندوق مُصغّر
-        var x = tight[0], y = tight[1], w = tight[2], h = tight[3];
-        var tl = v2c(x, y, fit);
-        var br = v2c(x+w, y+h, fit);
-        var dw = br[0]-tl[0], dh = br[1]-tl[1];
-
-        ctx.strokeStyle = 'rgba(0,255,136,.75)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 5]);
-        ctx.strokeRect(tl[0], tl[1], dw, dh);
-        ctx.setLineDash([]);
-
-        // زوايا صغيرة
-        var cl = Math.min(dw, dh) * 0.12;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(tl[0], tl[1]+cl); ctx.lineTo(tl[0], tl[1]); ctx.lineTo(tl[0]+cl, tl[1]);
-        ctx.moveTo(tl[0]+dw-cl, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]+cl);
-        ctx.moveTo(tl[0]+dw, tl[1]+dh-cl); ctx.lineTo(tl[0]+dw, tl[1]+dh); ctx.lineTo(tl[0]+dw-cl, tl[1]+dh);
-        ctx.moveTo(tl[0]+cl, tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh-cl);
-        ctx.stroke();
-      }
-    }
-    // ═══ يوجد قفل ═══
-    else {
-      var drawBox = lockedTrack ? lockedTrack.box : lockedLastBox;
-      var isLive = !!lockedTrack;
-
-      if (drawBox) {
-        // صندوق مُصغّر
-        var tight = insetBox(drawBox, BOX_INSET);
-        var x = tight[0], y = tight[1], w = tight[2], h = tight[3];
-        var tl = v2c(x, y, fit);
-        var br = v2c(x+w, y+h, fit);
-        var dw = br[0]-tl[0], dh = br[1]-tl[1];
-        var objCx = tl[0] + dw/2;
-        var objCy = tl[1] + dh/2;
-        var scx = fit.cx, scy = fit.cy;
-
-        // خط من المركز إلى الكائن
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255,235,59,.4)';
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(scx, scy);
-        ctx.lineTo(objCx, objCy);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-
-        // إطار الكائن (خط رفيع)
-        ctx.strokeStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.5)';
-        ctx.lineWidth = 1.8;
-        ctx.shadowColor = '#00ff88';
-        ctx.shadowBlur = isLive ? 10 : 3;
-        ctx.strokeRect(tl[0], tl[1], dw, dh);
-        ctx.shadowBlur = 0;
-
-        // زوايا مُقوّاة صغيرة
-        var cl = Math.min(dw, dh) * 0.14;
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(tl[0], tl[1]+cl); ctx.lineTo(tl[0], tl[1]); ctx.lineTo(tl[0]+cl, tl[1]);
-        ctx.moveTo(tl[0]+dw-cl, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]+cl);
-        ctx.moveTo(tl[0]+dw, tl[1]+dh-cl); ctx.lineTo(tl[0]+dw, tl[1]+dh); ctx.lineTo(tl[0]+dw-cl, tl[1]+dh);
-        ctx.moveTo(tl[0]+cl, tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh-cl);
-        ctx.stroke();
-
-        // صليب صغير
-        var crossSize = Math.max(14, Math.min(dw, dh) * 0.12);  // أصغر بكثير
-        drawTargetCrosshair(objCx, objCy, crossSize, isLive);
-
-        // علامة مركز الشاشة
-        drawScreenCenter(scx, scy);
-
-        // لافتة صغيرة جدًا
-        var text = '🎯 ' + lockedLabel + ' ' + (lockedScore*100).toFixed(0) + '%';
-        ctx.font = 'bold 12px monospace';
-        var tw = ctx.measureText(text).width;
-        ctx.fillStyle = isLive ? 'rgba(0,255,136,.9)' : 'rgba(0,255,136,.6)';
-        ctx.fillRect(tl[0], tl[1]-22, tw+12, 22);
-        ctx.fillStyle = '#000';
-        ctx.fillText(text, tl[0]+6, tl[1]-7);
-
-        // ═══ الحسابات ═══
-        var vcx = fit.vw / 2, vcy = fit.vh / 2;
-        var relX = (drawBox[0] + drawBox[2]/2) - vcx;
-        var relY = (drawBox[1] + drawBox[3]/2) - vcy;
-
-        var deltaX = 0, deltaY = 0;
-        if (isLive) {
-          if (lockData.prevT > 0) {
-            deltaX = relX - lockData.prevRelX;
-            deltaY = relY - lockData.prevRelY;
-          }
-          lockData.prevRelX = relX;
-          lockData.prevRelY = relY;
-          lockData.prevT = now;
-        }
-
-        var totalX = relX - lockData.startRelX;
-        var totalY = relY - lockData.startRelY;
-        var distNow = Math.sqrt(relX*relX + relY*relY);
-
-        panelEl.innerHTML =
-          '<div class="title">🎯 ' + lockedLabel +
-            (isLive ? '' : ' ⏸') + '</div>' +
-          '<div class="row">' +
-            '<span class="k">X</span>' +
-            '<span class="v ' + classX(relX) + '">' +
-              fmt(relX) + ' ' + arrowX(relX) + '</span>' +
-          '</div>' +
-          '<div class="row">' +
-            '<span class="k">Y</span>' +
-            '<span class="v ' + classY(relY) + '">' +
-              fmt(relY) + ' ' + arrowY(relY) + '</span>' +
-          '</div>' +
-          '<div class="row">' +
-            '<span class="k">مسافة</span>' +
-            '<span class="v">' + absFmt(distNow) + '</span>' +
-          '</div>' +
-          '<div class="sep"></div>' +
-          '<div class="sub">لحظي</div>' +
-          '<div class="row">' +
-            '<span class="k">ΔX</span>' +
-            '<span class="v ' + classX(deltaX) + '">' + fmt(deltaX) + '</span>' +
-          '</div>' +
-          '<div class="row">' +
-            '<span class="k">ΔY</span>' +
-            '<span class="v ' + classY(deltaY) + '">' + fmt(deltaY) + '</span>' +
-          '</div>' +
-          '<div class="sep"></div>' +
-          '<div class="sub">كلي</div>' +
-          '<div class="row">' +
-            '<span class="k">ΣX</span>' +
-            '<span class="v ' + classX(totalX) + '">' + fmt(totalX) + '</span>' +
-          '</div>' +
-          '<div class="row">' +
-            '<span class="k">ΣY</span>' +
-            '<span class="v ' + classY(totalY) + '">' + fmt(totalY) + '</span>' +
-          '</div>';
-      }
-    }
-
-    requestAnimationFrame(loop);
+// ═══ الحلقة ═══
+async function frame(){
+  if(!running)return;
+  const now=performance.now();
+  fpsN++;
+  if(now-fpsT>=1000){
+    fpsEl.textContent=(fpsN*1000/(now-fpsT)).toFixed(0)+' fps';
+    fpsN=0;fpsT=now;
   }
+  if(video.readyState>=2&&now-lastFrame>CFG.frameIntervalMs){
+    lastFrame=now;
+    frameCount++;
 
-  startBtn.addEventListener('click', start);
+    // التتبع البصري أولًا (سريع جدًا)
+    if(lockedId!==null&&selected)runPatchTracking(now);
+
+    // الكشف كل 320ms
+    if(!busy&&model&&now-lastDetect>=CFG.detectEveryMs){
+      busy=true;
+      try{await detect(now)}catch(e){}finally{busy=false}
+    }
+    render(now);
+  }
+  rafId=requestAnimationFrame(frame);
+}
+
+// ═══ بدء التشغيل ═══
+async function start(){
+  startBtn.disabled=true;
+  startBtn.textContent='جارٍ التحميل…';
+  hideError();
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      throw new Error('الكاميرا تحتاج HTTPS. افتح الملف عبر GitHub Pages.');
+    }
+    if(!window.cocoSsd||!window.tf){
+      throw new Error('تعذر تحميل مكتبات الكشف. تحقق من الإنترنت.');
+    }
+    hud.textContent='تحميل الموديل الخفيف…';
+    if(!model)model=await cocoSsd.load({base:'lite_mobilenet_v2'});
+
+    hud.textContent='تشغيل الكاميرا…';
+    stream=await navigator.mediaDevices.getUserMedia({
+      audio:false,
+      video:{
+        facingMode:{ideal:facing},
+        width:{ideal:640},height:{ideal:480},
+        frameRate:{ideal:30,max:30}
+      }
+    });
+    video.srcObject=stream;
+    await new Promise((res,rej)=>{
+      if(video.readyState>=1){res();return}
+      video.onloadedmetadata=res;
+      setTimeout(()=>rej(new Error('انتهت مهلة الكاميرا')),10000);
+    });
+    await video.play();
+    resize();
+    running=true;
+    startBtn.style.display='none';
+    switchBtn.style.display='block';
+    hud.textContent='MokTrak Lite · جاهز';
+    hint.style.display='block';
+    setTimeout(()=>hint.style.display='none',5500);
+    frame();
+  }catch(e){
+    showError('تعذر التشغيل: '+(e.message||e)+'\n\nتأكد من السماح بالكاميرا واستخدام HTTPS.');
+    hud.textContent='تعذر التشغيل';
+    startBtn.disabled=false;
+    startBtn.textContent='↻ إعادة المحاولة';
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  }
+}
+
+async function switchCamera(){
+  if(!running)return;
+  facing=facing==='environment'?'user':'environment';
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+  running=false;
+  cancelAnimationFrame(rafId);
+  unlock();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({
+      audio:false,
+      video:{
+        facingMode:{ideal:facing},
+        width:{ideal:640},height:{ideal:480},
+        frameRate:{ideal:30,max:30}
+      }
+    });
+    video.srcObject=stream;
+    await video.play();
+    running=true;lastDetect=0;tracks=[];
+    frame();
+  }catch(e){
+    showError('تعذر تبديل الكاميرا: '+e.message);
+    running=false;
+  }
+}
+
+startBtn.addEventListener('click',start);
+switchBtn.addEventListener('click',switchCamera);
+window.addEventListener('pagehide',()=>{
+  running=false;
+  cancelAnimationFrame(rafId);
+  if(stream)stream.getTracks().forEach(t=>t.stop());
+});
 })();
 </script>
 </body>
