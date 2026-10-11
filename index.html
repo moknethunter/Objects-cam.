@@ -19,13 +19,16 @@
     padding:16px 30px; border-radius:30px; z-index:6; display:none;
     border:2px solid #00ff88; text-align:center; pointer-events:none; }
   #panel { position:absolute; bottom:12px; left:12px; right:12px; color:#00ff88;
-    font:500 13px ui-monospace,monospace; background:rgba(0,0,0,.85);
-    padding:14px 18px; border-radius:16px; border:2px solid #00ff88;
-    z-index:5; display:none; line-height:1.8; }
+    font:500 12.5px ui-monospace,monospace; background:rgba(0,0,0,.88);
+    padding:12px 16px; border-radius:16px; border:2px solid #00ff88;
+    z-index:5; display:none; line-height:1.75; max-height:48vh; overflow-y:auto; }
   #panel b { color:#fff; }
   #panel .zoom { color:#ffeb3b; font-weight:700; }
-  #panel .row { display:flex; justify-content:space-between; gap:8px; }
-  #panel hr { border:0; border-top:1px solid rgba(0,255,136,.3); margin:6px 0; }
+  #panel .row { display:flex; justify-content:space-between; gap:10px; }
+  #panel .row span:first-child { color:rgba(0,255,136,.75); }
+  #panel .row span:last-child { color:#fff; font-weight:600; }
+  #panel hr { border:0; border-top:1px solid rgba(0,255,136,.25); margin:5px 0; }
+  #panel .stale { color:#ff9800; font-size:11px; }
   #resetBtn { position:absolute; top:56px; right:12px; color:#000; background:#00ff88;
     border:none; padding:10px 18px; border-radius:22px; font:700 13px system-ui;
     z-index:7; display:none; cursor:pointer; box-shadow:0 4px 16px rgba(0,255,136,.6); }
@@ -67,7 +70,7 @@ window.addEventListener('error', function(ev) {
 (function(){
   'use strict';
 
-  var SCORE_MIN = 0.35, SMOOTHING = 0.7, LOST_TIMEOUT = 1000;
+  var SCORE_MIN = 0.35, SMOOTHING = 0.7, LOST_TIMEOUT = 1200;
   var LOCK_GRACE = 4000, IOU_MIN = 0.15;
 
   var video = document.getElementById('video');
@@ -88,9 +91,13 @@ window.addEventListener('error', function(ev) {
   var tracks = [];
   var lastFps = performance.now();
   var fpsCount = 0;
+
+  // حالة القفل
   var lockedId = null;
+  var lockedTrack = null;
+  var lockedLastBox = null;  // آخر صندوق معروف (يبقى رغم الفقدان)
   var lockedLastSeen = 0;
-  var lockData = null;
+  var lockData = null;       // بيانات مرجعية من لحظة القفل
 
   function resize() {
     var r = wrap.getBoundingClientRect();
@@ -117,7 +124,7 @@ window.addEventListener('error', function(ev) {
   }
   function fmt(n) { return (n >= 0 ? '+' : '') + n.toFixed(0); }
 
-  // حساب أبعاد "object-fit: cover" للفيديو داخل wrap
+  // يحسب كيف يملأ الفيديو الكانفس (object-fit: cover)
   function getFit() {
     var wrapW = canvas.width, wrapH = canvas.height;
     var vw = video.videoWidth || 640, vh = video.videoHeight || 480;
@@ -126,11 +133,12 @@ window.addEventListener('error', function(ev) {
       scale: scale,
       ox: (wrapW - vw*scale) / 2,
       oy: (wrapH - vh*scale) / 2,
-      vw: vw, vh: vh
+      vw: vw, vh: vh,
+      cx: wrapW/2, cy: wrapH/2   // مركز الشاشة
     };
   }
 
-  // من إحداثيات الفيديو (px,py) إلى إحداثيات الكانفس
+  // من إحداثيات الفيديو إلى إحداثيات الكانفس
   function v2c(px, py, fit) {
     return [fit.ox + px*fit.scale, fit.oy + py*fit.scale];
   }
@@ -142,6 +150,20 @@ window.addEventListener('error', function(ev) {
     var sy = (clientY - r.top) * (canvas.height / r.height);
     var fit = getFit();
     return [(sx - fit.ox) / fit.scale, (sy - fit.oy) / fit.scale];
+  }
+
+  // الاتجاه من مركز الشاشة إلى الكائن
+  function compassFromAngle(deg) {
+    // 0° = يمين، 90° = أسفل (نظام إحداثيات الشاشة)
+    var a = ((deg % 360) + 360) % 360;
+    if (a < 22.5 || a >= 337.5) return '→';
+    if (a < 67.5)  return '↘';
+    if (a < 112.5) return '↓';
+    if (a < 157.5) return '↙';
+    if (a < 202.5) return '←';
+    if (a < 247.5) return '↖';
+    if (a < 292.5) return '↑';
+    return '↗';
   }
 
   async function start() {
@@ -192,19 +214,25 @@ window.addEventListener('error', function(ev) {
   function lockOn(t) {
     var x = t.box[0], y = t.box[1], w = t.box[2], h = t.box[3];
     lockedId = t.id;
-    lockData = {
-      startArea: w*h, startW: w, startH: h,
-      prevArea: w*h, prevW: w, prevH: h, prevX: x, prevY: y,
-      prevT: performance.now(), peakArea: w*h
-    };
+    lockedLastBox = [x, y, w, h];
     lockedLastSeen = performance.now();
+    lockData = {
+      startW: w, startH: h, startArea: w*h,
+      startX: x, startY: y,
+      prevT: 0,
+      prevCx: 0, prevCy: 0,      // مركز الكائن السابق (video coords)
+      prevOffsetX: 0, prevOffsetY: 0,  // الانحراف السابق عن مركز الشاشة
+      peakArea: w*h,
+      minArea: w*h
+    };
     hud.textContent = '🎯 مقفل: ' + t.label;
     resetBtn.style.display = 'block';
     panelEl.style.display = 'block';
     hintEl.style.display = 'none';
   }
+
   function unlock() {
-    lockedId = null; lockData = null;
+    lockedId = null; lockedTrack = null; lockedLastBox = null; lockData = null;
     resetBtn.style.display = 'none';
     panelEl.style.display = 'none';
     hud.textContent = 'MokTrak · جاهز';
@@ -233,26 +261,37 @@ window.addEventListener('error', function(ev) {
   });
   resetBtn.addEventListener('click', function(e){ e.stopPropagation(); unlock(); });
 
-  function drawCrosshair(cx, cy, size) {
+  // ─── رسم الصليب الأخضر على الكائن ───
+  function drawTargetCrosshair(cx, cy, size, live) {
     ctx.save();
-    ctx.strokeStyle = '#00ff88';
+    ctx.strokeStyle = live ? '#00ff88' : 'rgba(0,255,136,.55)';
     ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = live ? 10 : 4;
+
     var gap = size*0.25, arm = size;
-    ctx.lineWidth = 2;
+
+    // 4 خطوط رئيسية
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(cx-arm, cy); ctx.lineTo(cx-gap, cy);
     ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+arm, cy);
     ctx.moveTo(cx, cy-arm); ctx.lineTo(cx, cy-gap);
     ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+arm);
     ctx.stroke();
+
+    // دائرة داخلية
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, gap*0.85, 0, Math.PI*2);
     ctx.stroke();
-    ctx.fillStyle = '#00ff88';
+
+    // نقطة مركزية
+    ctx.fillStyle = live ? '#00ff88' : 'rgba(0,255,136,.55)';
     ctx.beginPath();
-    ctx.arc(cx, cy, 2.2, 0, Math.PI*2);
+    ctx.arc(cx, cy, 2.5, 0, Math.PI*2);
     ctx.fill();
+
+    // 4 أقواس زاوية
     ctx.lineWidth = 3;
     var r2 = arm + 6, arcLen = Math.PI/4;
     for (var k = 0; k < 4; k++) {
@@ -261,6 +300,33 @@ window.addEventListener('error', function(ev) {
       ctx.arc(cx, cy, r2, base, base+arcLen);
       ctx.stroke();
     }
+
+    ctx.restore();
+  }
+
+  // ─── رسم علامة مركز الشاشة ───
+  function drawCenterMarker(cx, cy) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,235,59,.9)';
+    ctx.fillStyle = 'rgba(255,235,59,.9)';
+    ctx.shadowColor = '#ffeb3b';
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 2;
+
+    // صليب صغير
+    var s = 12, gap2 = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx-s, cy); ctx.lineTo(cx-gap2, cy);
+    ctx.moveTo(cx+gap2, cy); ctx.lineTo(cx+s, cy);
+    ctx.moveTo(cx, cy-s); ctx.lineTo(cx, cy-gap2);
+    ctx.moveTo(cx, cy+gap2); ctx.lineTo(cx, cy+s);
+    ctx.stroke();
+
+    // نقطة
+    ctx.beginPath();
+    ctx.arc(cx, cy, 1.5, 0, Math.PI*2);
+    ctx.fill();
+
     ctx.restore();
   }
 
@@ -274,6 +340,7 @@ window.addEventListener('error', function(ev) {
       fpsCount = 0; lastFps = now;
     }
 
+    // كشف
     var preds = [];
     try { preds = await model.detect(video, 8, SCORE_MIN); } catch(e){}
 
@@ -286,6 +353,7 @@ window.addEventListener('error', function(ev) {
     dets.sort(function(a,b){ return b.area - a.area; });
     dets = dets.slice(0, 5);
 
+    // مطابقة المسارات
     var used = [];
     for (var i = 0; i < tracks.length; i++) used.push(false);
     var fresh = [];
@@ -313,13 +381,18 @@ window.addEventListener('error', function(ev) {
     }
     tracks = fresh;
 
-    var lockedTrack = null;
+    // فحص القفل
+    lockedTrack = null;
     if (lockedId !== null) {
       for (var i = 0; i < tracks.length; i++) {
         if (tracks[i].id === lockedId) { lockedTrack = tracks[i]; break; }
       }
-      if (lockedTrack) lockedLastSeen = now;
-      else if (now - lockedLastSeen > LOCK_GRACE) unlock();
+      if (lockedTrack) {
+        lockedLastSeen = now;
+        lockedLastBox = lockedTrack.box.slice();
+      } else if (now - lockedLastSeen > LOCK_GRACE) {
+        unlock();
+      }
     }
 
     if (canvas.width !== Math.round(wrap.getBoundingClientRect().width)) resize();
@@ -327,7 +400,8 @@ window.addEventListener('error', function(ev) {
 
     var fit = getFit();
 
-    if (lockedId === null || !lockedTrack) {
+    // ═══ لا يوجد قفل: اعرض أكبر كائنين ═══
+    if (lockedId === null) {
       var top = tracks.slice(0, 2);
       for (var i = 0; i < top.length; i++) {
         var t = top[i];
@@ -350,65 +424,150 @@ window.addEventListener('error', function(ev) {
         ctx.fillStyle = '#000';
         ctx.fillText(text, tl[0]+6, tl[1]-7);
       }
-    } else {
-      var t = lockedTrack;
-      var x = t.box[0], y = t.box[1], w = t.box[2], h = t.box[3];
-      var tl = v2c(x, y, fit);
-      var br = v2c(x+w, y+h, fit);
-      var dw = br[0]-tl[0], dh = br[1]-tl[1];
-      var cx = tl[0]+dw/2, cy = tl[1]+dh/2;
+    }
+    // ═══ يوجد قفل: اعرض الكائن المقفل فقط ═══
+    else {
+      var drawBox = lockedTrack ? lockedTrack.box : lockedLastBox;
+      var isLive = !!lockedTrack;
 
-      ctx.strokeStyle = '#00ff88';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = '#00ff88';
-      ctx.shadowBlur = 15;
-      ctx.strokeRect(tl[0], tl[1], dw, dh);
-      ctx.shadowBlur = 0;
+      if (drawBox) {
+        var x = drawBox[0], y = drawBox[1], w = drawBox[2], h = drawBox[3];
+        var tl = v2c(x, y, fit);
+        var br = v2c(x+w, y+h, fit);
+        var dw = br[0]-tl[0], dh = br[1]-tl[1];
+        var objCx = tl[0] + dw/2;
+        var objCy = tl[1] + dh/2;
 
-      var crossSize = Math.max(28, Math.min(dw, dh) * 0.28);
-      drawCrosshair(cx, cy, crossSize);
+        // مركز الشاشة
+        var scx = fit.cx, scy = fit.cy;
 
-      var text = '🎯 #' + t.id + ' ' + t.label + ' ' + (t.score*100).toFixed(0) + '%';
-      ctx.font = 'bold 16px monospace';
-      var tw = ctx.measureText(text).width;
-      ctx.fillStyle = '#00ff88';
-      ctx.fillRect(tl[0], tl[1]-30, tw+16, 30);
-      ctx.fillStyle = '#000';
-      ctx.fillText(text, tl[0]+8, tl[1]-10);
+        // 1) خط متقطع بين مركز الشاشة ومركز الكائن
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,235,59,.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(scx, scy);
+        ctx.lineTo(objCx, objCy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
 
-      // إحداثيات في فضاء الفيديو (الأصلية)
-      var area = w*h;
-      var dt = Math.max(1, now - lockData.prevT);
-      var deltaArea = area - lockData.prevArea;
-      var totalArea = area - lockData.startArea;
-      var totalW = w - lockData.startW;
-      var totalH = h - lockData.startH;
-      var dcx = (x+w/2) - (lockData.prevX + lockData.prevW/2);
-      var dcy = (y+h/2) - (lockData.prevY + lockData.prevH/2);
-      var zoom = lockData.startArea > 0 ? area/lockData.startArea : 1;
-      var approaching = deltaArea > 0;
-      var arrow = approaching ? '▼' : '▲';
-      var dir = approaching ? 'يقترب' : 'يبتعد';
-      var color = approaching ? '#00ff88' : '#ff5252';
-      var distance = Math.sqrt(100000 / Math.max(area, 1)).toFixed(1);
+        // 2) صندوق الكائن
+        ctx.strokeStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.5)';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#00ff88';
+        ctx.shadowBlur = isLive ? 15 : 4;
+        ctx.strokeRect(tl[0], tl[1], dw, dh);
+        ctx.shadowBlur = 0;
 
-      panelEl.innerHTML =
-        '<b style="color:'+color+';font-size:15px">'+arrow+' '+dir+'</b> '+
-        '<span class="zoom">· زوم '+zoom.toFixed(2)+'×</span><br>'+
-        '<div class="row"><span>📍 الموضع:</span><span>X '+x.toFixed(0)+' · Y '+y.toFixed(0)+'</span></div>'+
-        '<div class="row"><span>🎯 المركز:</span><span>'+(x+w/2).toFixed(0)+' · '+(y+h/2).toFixed(0)+'</span></div>'+
-        '<div class="row"><span>📐 الحجم:</span><span>'+w.toFixed(0)+'×'+h.toFixed(0)+'</span></div>'+
-        '<div class="row"><span>📊 المساحة:</span><span>'+(area/1000).toFixed(1)+'k px²</span></div>'+
-        '<div class="row"><span>↔️ حركة:</span><span>'+fmt(dcx)+' · '+fmt(dcy)+' px</span></div>'+
-        '<div class="row"><span>⚡ سرعة:</span><span>'+(Math.sqrt(dcx*dcx+dcy*dcy)/dt*1000).toFixed(0)+' px/s</span></div>'+
-        '<hr>'+
-        '<div class="row"><span>📈 من القفل:</span><span>Δ '+fmt(totalArea)+' · '+fmt(totalW)+'/'+fmt(totalH)+'</span></div>'+
-        '<div class="row"><span>📏 مسافة:</span><span>'+distance+' وحدة</span></div>'+
-        '<div class="row"><span>🏆 أقصى تقارب:</span><span>'+(lockData.peakArea/1000).toFixed(1)+'k</span></div>';
+        // 3) الصليب على الكائن
+        var crossSize = Math.max(28, Math.min(dw, dh) * 0.28);
+        drawTargetCrosshair(objCx, objCy, crossSize, isLive);
 
-      lockData.prevArea = area; lockData.prevW = w; lockData.prevH = h;
-      lockData.prevX = x; lockData.prevY = y; lockData.prevT = now;
-      if (area > lockData.peakArea) lockData.peakArea = area;
+        // 4) علامة مركز الشاشة
+        drawCenterMarker(scx, scy);
+
+        // 5) لافتة التسمية
+        var text = '🎯 #' + (lockedTrack ? lockedTrack.id : lockedId) + ' ' +
+                   (lockedTrack ? lockedTrack.label : '') + ' ' +
+                   (lockedTrack ? (lockedTrack.score*100).toFixed(0) + '%' : '');
+        ctx.font = 'bold 16px monospace';
+        var tw = ctx.measureText(text).width;
+        ctx.fillStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.65)';
+        ctx.fillRect(tl[0], tl[1]-30, tw+16, 30);
+        ctx.fillStyle = '#000';
+        ctx.fillText(text, tl[0]+8, tl[1]-10);
+
+        // ═══ حساب الإحداثيات بالنسبة للمركز ═══
+        var offsetX = objCx - scx;      // + يعني يمين المركز
+        var offsetY = objCy - scy;      // + يعني أسفل المركز
+        var distance = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
+        var angleDeg = Math.atan2(offsetY, offsetX) * 180 / Math.PI;
+        var compass = compassFromAngle(angleDeg);
+
+        // قياسات الكائن (بإحداثيات الفيديو الأصلية)
+        var area = w*h;
+        var zoom = lockData.startArea > 0 ? area/lockData.startArea : 1;
+
+        // التغير اللحظي
+        var deltaOffsetX = 0, deltaOffsetY = 0, deltaDistance = 0;
+        var speed = 0, distSpeed = 0;
+        var dt = 0;
+
+        if (isLive) {
+          if (lockData.prevT > 0) {
+            dt = Math.max(1, now - lockData.prevT);
+            deltaOffsetX = offsetX - lockData.prevOffsetX;
+            deltaOffsetY = offsetY - lockData.prevOffsetY;
+            var prevDist = Math.sqrt(
+              lockData.prevOffsetX*lockData.prevOffsetX +
+              lockData.prevOffsetY*lockData.prevOffsetY
+            );
+            deltaDistance = distance - prevDist;
+            speed = Math.sqrt(deltaOffsetX*deltaOffsetX + deltaOffsetY*deltaOffsetY) / dt * 1000;
+            distSpeed = deltaDistance / dt * 1000;
+          }
+          lockData.prevOffsetX = offsetX;
+          lockData.prevOffsetY = offsetY;
+          lockData.prevT = now;
+          if (area > lockData.peakArea) lockData.peakArea = area;
+          if (area < lockData.minArea) lockData.minArea = area;
+        }
+
+        var totalArea = area - lockData.startArea;
+        var totalW = w - lockData.startW;
+        var totalH = h - lockData.startH;
+
+        var zooming = totalArea > 0 ? 'يقترب' : (totalArea < 0 ? 'يبتعد' : 'ثابت');
+        var zoomColor = totalArea > 0 ? '#00ff88' : (totalArea < 0 ? '#ff5252' : '#888');
+
+        var moveArrow = '';
+        if (Math.abs(deltaOffsetX) > 1 || Math.abs(deltaOffsetY) > 1) {
+          moveArrow = compassFromAngle(Math.atan2(deltaOffsetY, deltaOffsetX) * 180 / Math.PI);
+        }
+
+        // ═══ لوحة المعلومات ═══
+        panelEl.innerHTML =
+          '<b style="color:' + zoomColor + ';font-size:15px">' +
+          (totalArea > 0 ? '▼ ' : totalArea < 0 ? '▲ ' : '● ') + zooming +
+          '</b> <span class="zoom">· زوم ' + zoom.toFixed(2) + '×</span>' +
+          (isLive ? '' : ' <span class="stale">⏸ فقدان مؤقت</span>') + '<br>' +
+
+          '<hr>' +
+          '<div class="row"><span>📍 مركز الكائن:</span><span>(' +
+            (x+w/2).toFixed(0) + '، ' + (y+h/2).toFixed(0) + ')</span></div>' +
+          '<div class="row"><span>🎯 مركز الشاشة:</span><span>(' +
+            (fit.vw/2).toFixed(0) + '، ' + (fit.vh/2).toFixed(0) + ')</span></div>' +
+
+          '<hr>' +
+          '<div class="row"><span>↔️ الانحراف عن المركز:</span><span>ΔX ' +
+            fmt(offsetX / fit.scale) + ' · ΔY ' + fmt(offsetY / fit.scale) + '</span></div>' +
+          '<div class="row"><span>📏 المسافة عن المركز:</span><span>' +
+            (distance / fit.scale).toFixed(0) + ' px</span></div>' +
+          '<div class="row"><span>🧭 الاتجاه:</span><span>' +
+            compass + ' ' + angleDeg.toFixed(0) + '°</span></div>' +
+
+          '<hr>' +
+          '<div class="row"><span>⚡ التغير اللحظي:</span><span>' + moveArrow + ' Δ ' +
+            fmt(deltaOffsetX / fit.scale) + ' · ' + fmt(deltaOffsetY / fit.scale) + '</span></div>' +
+          '<div class="row"><span>💨 سرعة الحركة:</span><span>' +
+            speed.toFixed(0) + ' px/s</span></div>' +
+          '<div class="row"><span>📈 تغير المسافة:</span><span style="color:' +
+            (distSpeed < 0 ? '#00ff88' : distSpeed > 0 ? '#ff5252' : '#888') + '">' +
+            (distSpeed < 0 ? '▼ ' : distSpeed > 0 ? '▲ ' : '● ') +
+            Math.abs(distSpeed).toFixed(0) + ' px/s</span></div>' +
+
+          '<hr>' +
+          '<div class="row"><span>📐 الحجم:</span><span>' +
+            w.toFixed(0) + '×' + h.toFixed(0) + ' px</span></div>' +
+          '<div class="row"><span>📊 المساحة:</span><span>' +
+            (area/1000).toFixed(1) + 'k px²</span></div>' +
+          '<div class="row"><span>📈 من القفل:</span><span>Δمساحة ' +
+            fmt(totalArea/1000) + 'k · Δحجم ' + fmt(totalW) + '/' + fmt(totalH) + '</span></div>' +
+          '<div class="row"><span>🏆 أقصى تقارب:</span><span>' +
+            (lockData.peakArea/1000).toFixed(1) + 'k px²</span></div>';
+      }
     }
 
     requestAnimationFrame(loop);
