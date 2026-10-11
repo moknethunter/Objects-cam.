@@ -17,18 +17,21 @@
   #hint { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
     color:#00ff88; font-size:16px; font-weight:700; background:rgba(0,0,0,.85);
     padding:16px 30px; border-radius:30px; z-index:6; display:none;
-    border:2px solid #00ff88; text-align:center; pointer-events:none; }
+    border:2px solid #00ff88; text-align:center; }
   #panel { position:absolute; bottom:12px; left:12px; right:12px; color:#00ff88;
-    font:500 12.5px ui-monospace,monospace; background:rgba(0,0,0,.88);
-    padding:12px 16px; border-radius:16px; border:2px solid #00ff88;
-    z-index:5; display:none; line-height:1.75; max-height:48vh; overflow-y:auto; }
-  #panel b { color:#fff; }
-  #panel .zoom { color:#ffeb3b; font-weight:700; }
-  #panel .row { display:flex; justify-content:space-between; gap:10px; }
-  #panel .row span:first-child { color:rgba(0,255,136,.75); }
-  #panel .row span:last-child { color:#fff; font-weight:600; }
-  #panel hr { border:0; border-top:1px solid rgba(0,255,136,.25); margin:5px 0; }
-  #panel .stale { color:#ff9800; font-size:11px; }
+    font:500 14px ui-monospace,monospace; background:rgba(0,0,0,.9);
+    padding:14px 18px; border-radius:14px; border:2px solid #00ff88;
+    z-index:5; display:none; line-height:1.9; }
+  #panel .title { color:#fff; font-weight:700; font-size:15px; margin-bottom:6px; }
+  #panel .line { display:flex; justify-content:space-between; gap:10px; }
+  #panel .label { color:rgba(0,255,136,.75); }
+  #panel .value { color:#fff; font-weight:700; }
+  #panel .value.right { color:#00e5ff; }
+  #panel .value.left  { color:#ff9100; }
+  #panel .value.up    { color:#ff5252; }
+  #panel .value.down  { color:#b388ff; }
+  #panel .value.zero  { color:#888; }
+  #panel hr { border:0; border-top:1px solid rgba(0,255,136,.25); margin:6px 0; }
   #resetBtn { position:absolute; top:56px; right:12px; color:#000; background:#00ff88;
     border:none; padding:10px 18px; border-radius:22px; font:700 13px system-ui;
     z-index:7; display:none; cursor:pointer; box-shadow:0 4px 16px rgba(0,255,136,.6); }
@@ -92,12 +95,10 @@ window.addEventListener('error', function(ev) {
   var lastFps = performance.now();
   var fpsCount = 0;
 
-  // حالة القفل
   var lockedId = null;
-  var lockedTrack = null;
-  var lockedLastBox = null;  // آخر صندوق معروف (يبقى رغم الفقدان)
+  var lockedLastBox = null;
   var lockedLastSeen = 0;
-  var lockData = null;       // بيانات مرجعية من لحظة القفل
+  var lockData = null;
 
   function resize() {
     var r = wrap.getBoundingClientRect();
@@ -123,8 +124,25 @@ window.addEventListener('error', function(ev) {
     return [p[0]*a+n[0]*b, p[1]*a+n[1]*b, p[2]*a+n[2]*b, p[3]*a+n[3]*b];
   }
   function fmt(n) { return (n >= 0 ? '+' : '') + n.toFixed(0); }
+  function absFmt(n) { return Math.abs(n).toFixed(0); }
 
-  // يحسب كيف يملأ الفيديو الكانفس (object-fit: cover)
+  function dirClass(v) {
+    if (Math.abs(v) < 2) return 'zero';
+    return v > 0 ? 'right' : 'left';
+  }
+  function dirClassY(v) {
+    if (Math.abs(v) < 2) return 'zero';
+    return v > 0 ? 'down' : 'up';
+  }
+  function dirTextX(v) {
+    if (Math.abs(v) < 2) return '●';
+    return v > 0 ? '→ يمين' : '← يسار';
+  }
+  function dirTextY(v) {
+    if (Math.abs(v) < 2) return '●';
+    return v > 0 ? '↓ أسفل' : '↑ أعلى';
+  }
+
   function getFit() {
     var wrapW = canvas.width, wrapH = canvas.height;
     var vw = video.videoWidth || 640, vh = video.videoHeight || 480;
@@ -134,36 +152,20 @@ window.addEventListener('error', function(ev) {
       ox: (wrapW - vw*scale) / 2,
       oy: (wrapH - vh*scale) / 2,
       vw: vw, vh: vh,
-      cx: wrapW/2, cy: wrapH/2   // مركز الشاشة
+      cx: wrapW/2, cy: wrapH/2
     };
   }
 
-  // من إحداثيات الفيديو إلى إحداثيات الكانفس
   function v2c(px, py, fit) {
     return [fit.ox + px*fit.scale, fit.oy + py*fit.scale];
   }
 
-  // من لمسة الشاشة إلى إحداثيات الفيديو
   function touchToVideo(clientX, clientY) {
     var r = canvas.getBoundingClientRect();
     var sx = (clientX - r.left) * (canvas.width / r.width);
     var sy = (clientY - r.top) * (canvas.height / r.height);
     var fit = getFit();
     return [(sx - fit.ox) / fit.scale, (sy - fit.oy) / fit.scale];
-  }
-
-  // الاتجاه من مركز الشاشة إلى الكائن
-  function compassFromAngle(deg) {
-    // 0° = يمين، 90° = أسفل (نظام إحداثيات الشاشة)
-    var a = ((deg % 360) + 360) % 360;
-    if (a < 22.5 || a >= 337.5) return '→';
-    if (a < 67.5)  return '↘';
-    if (a < 112.5) return '↓';
-    if (a < 157.5) return '↙';
-    if (a < 202.5) return '←';
-    if (a < 247.5) return '↖';
-    if (a < 292.5) return '↑';
-    return '↗';
   }
 
   async function start() {
@@ -216,15 +218,25 @@ window.addEventListener('error', function(ev) {
     lockedId = t.id;
     lockedLastBox = [x, y, w, h];
     lockedLastSeen = performance.now();
+
+    // احسب الإحداثيات الأولية بالنسبة لمركز الإطار (بكسل الفيديو)
+    var fit = getFit();
+    var vcx = fit.vw / 2, vcy = fit.vh / 2;
+    var objCx = x + w/2, objCy = y + h/2;
+    var relX0 = objCx - vcx;
+    var relY0 = objCy - vcy;
+
     lockData = {
-      startW: w, startH: h, startArea: w*h,
-      startX: x, startY: y,
+      startRelX: relX0,
+      startRelY: relY0,
+      prevRelX: relX0,
+      prevRelY: relY0,
       prevT: 0,
-      prevCx: 0, prevCy: 0,      // مركز الكائن السابق (video coords)
-      prevOffsetX: 0, prevOffsetY: 0,  // الانحراف السابق عن مركز الشاشة
-      peakArea: w*h,
-      minArea: w*h
+      label: t.label,
+      score: t.score,
+      box0: [x, y, w, h]
     };
+
     hud.textContent = '🎯 مقفل: ' + t.label;
     resetBtn.style.display = 'block';
     panelEl.style.display = 'block';
@@ -232,7 +244,7 @@ window.addEventListener('error', function(ev) {
   }
 
   function unlock() {
-    lockedId = null; lockedTrack = null; lockedLastBox = null; lockData = null;
+    lockedId = null; lockedLastBox = null; lockData = null;
     resetBtn.style.display = 'none';
     panelEl.style.display = 'none';
     hud.textContent = 'MokTrak · جاهز';
@@ -261,7 +273,7 @@ window.addEventListener('error', function(ev) {
   });
   resetBtn.addEventListener('click', function(e){ e.stopPropagation(); unlock(); });
 
-  // ─── رسم الصليب الأخضر على الكائن ───
+  // ─── صليب الهدف (على الكائن) ───
   function drawTargetCrosshair(cx, cy, size, live) {
     ctx.save();
     ctx.strokeStyle = live ? '#00ff88' : 'rgba(0,255,136,.55)';
@@ -270,7 +282,6 @@ window.addEventListener('error', function(ev) {
 
     var gap = size*0.25, arm = size;
 
-    // 4 خطوط رئيسية
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(cx-arm, cy); ctx.lineTo(cx-gap, cy);
@@ -279,19 +290,16 @@ window.addEventListener('error', function(ev) {
     ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+arm);
     ctx.stroke();
 
-    // دائرة داخلية
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, gap*0.85, 0, Math.PI*2);
     ctx.stroke();
 
-    // نقطة مركزية
     ctx.fillStyle = live ? '#00ff88' : 'rgba(0,255,136,.55)';
     ctx.beginPath();
     ctx.arc(cx, cy, 2.5, 0, Math.PI*2);
     ctx.fill();
 
-    // 4 أقواس زاوية
     ctx.lineWidth = 3;
     var r2 = arm + 6, arcLen = Math.PI/4;
     for (var k = 0; k < 4; k++) {
@@ -300,12 +308,11 @@ window.addEventListener('error', function(ev) {
       ctx.arc(cx, cy, r2, base, base+arcLen);
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  // ─── رسم علامة مركز الشاشة ───
-  function drawCenterMarker(cx, cy) {
+  // ─── علامة مركز الشاشة (المصدر) ───
+  function drawScreenCenter(cx, cy) {
     ctx.save();
     ctx.strokeStyle = 'rgba(255,235,59,.9)';
     ctx.fillStyle = 'rgba(255,235,59,.9)';
@@ -313,20 +320,17 @@ window.addEventListener('error', function(ev) {
     ctx.shadowBlur = 8;
     ctx.lineWidth = 2;
 
-    // صليب صغير
-    var s = 12, gap2 = 4;
+    var s = 14, gap = 4;
     ctx.beginPath();
-    ctx.moveTo(cx-s, cy); ctx.lineTo(cx-gap2, cy);
-    ctx.moveTo(cx+gap2, cy); ctx.lineTo(cx+s, cy);
-    ctx.moveTo(cx, cy-s); ctx.lineTo(cx, cy-gap2);
-    ctx.moveTo(cx, cy+gap2); ctx.lineTo(cx, cy+s);
+    ctx.moveTo(cx-s, cy); ctx.lineTo(cx-gap, cy);
+    ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+s, cy);
+    ctx.moveTo(cx, cy-s); ctx.lineTo(cx, cy-gap);
+    ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+s);
     ctx.stroke();
 
-    // نقطة
     ctx.beginPath();
-    ctx.arc(cx, cy, 1.5, 0, Math.PI*2);
+    ctx.arc(cx, cy, 2, 0, Math.PI*2);
     ctx.fill();
-
     ctx.restore();
   }
 
@@ -340,7 +344,6 @@ window.addEventListener('error', function(ev) {
       fpsCount = 0; lastFps = now;
     }
 
-    // كشف
     var preds = [];
     try { preds = await model.detect(video, 8, SCORE_MIN); } catch(e){}
 
@@ -353,7 +356,6 @@ window.addEventListener('error', function(ev) {
     dets.sort(function(a,b){ return b.area - a.area; });
     dets = dets.slice(0, 5);
 
-    // مطابقة المسارات
     var used = [];
     for (var i = 0; i < tracks.length; i++) used.push(false);
     var fresh = [];
@@ -381,8 +383,7 @@ window.addEventListener('error', function(ev) {
     }
     tracks = fresh;
 
-    // فحص القفل
-    lockedTrack = null;
+    var lockedTrack = null;
     if (lockedId !== null) {
       for (var i = 0; i < tracks.length; i++) {
         if (tracks[i].id === lockedId) { lockedTrack = tracks[i]; break; }
@@ -400,7 +401,7 @@ window.addEventListener('error', function(ev) {
 
     var fit = getFit();
 
-    // ═══ لا يوجد قفل: اعرض أكبر كائنين ═══
+    // ═══ قبل القفل: مربعات متقطعة لأكبر كائنين ═══
     if (lockedId === null) {
       var top = tracks.slice(0, 2);
       for (var i = 0; i < top.length; i++) {
@@ -425,7 +426,7 @@ window.addEventListener('error', function(ev) {
         ctx.fillText(text, tl[0]+6, tl[1]-7);
       }
     }
-    // ═══ يوجد قفل: اعرض الكائن المقفل فقط ═══
+    // ═══ بعد القفل ═══
     else {
       var drawBox = lockedTrack ? lockedTrack.box : lockedLastBox;
       var isLive = !!lockedTrack;
@@ -438,12 +439,11 @@ window.addEventListener('error', function(ev) {
         var objCx = tl[0] + dw/2;
         var objCy = tl[1] + dh/2;
 
-        // مركز الشاشة
         var scx = fit.cx, scy = fit.cy;
 
-        // 1) خط متقطع بين مركز الشاشة ومركز الكائن
+        // 1) خط من مركز الشاشة إلى الكائن
         ctx.save();
-        ctx.strokeStyle = 'rgba(255,235,59,.4)';
+        ctx.strokeStyle = 'rgba(255,235,59,.45)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 6]);
         ctx.beginPath();
@@ -453,7 +453,7 @@ window.addEventListener('error', function(ev) {
         ctx.setLineDash([]);
         ctx.restore();
 
-        // 2) صندوق الكائن
+        // 2) إطار الكائن
         ctx.strokeStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.5)';
         ctx.lineWidth = 4;
         ctx.shadowColor = '#00ff88';
@@ -461,17 +461,16 @@ window.addEventListener('error', function(ev) {
         ctx.strokeRect(tl[0], tl[1], dw, dh);
         ctx.shadowBlur = 0;
 
-        // 3) الصليب على الكائن
-        var crossSize = Math.max(28, Math.min(dw, dh) * 0.28);
+        // 3) صليب على الكائن
+        var crossSize = Math.max(26, Math.min(dw, dh) * 0.28);
         drawTargetCrosshair(objCx, objCy, crossSize, isLive);
 
         // 4) علامة مركز الشاشة
-        drawCenterMarker(scx, scy);
+        drawScreenCenter(scx, scy);
 
-        // 5) لافتة التسمية
-        var text = '🎯 #' + (lockedTrack ? lockedTrack.id : lockedId) + ' ' +
-                   (lockedTrack ? lockedTrack.label : '') + ' ' +
-                   (lockedTrack ? (lockedTrack.score*100).toFixed(0) + '%' : '');
+        // 5) لافتة
+        var text = '🎯 ' + (lockedTrack ? lockedTrack.label : lockData.label) +
+                   ' ' + ((lockedTrack ? lockedTrack.score : lockData.score)*100).toFixed(0) + '%';
         ctx.font = 'bold 16px monospace';
         var tw = ctx.measureText(text).width;
         ctx.fillStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.65)';
@@ -479,94 +478,95 @@ window.addEventListener('error', function(ev) {
         ctx.fillStyle = '#000';
         ctx.fillText(text, tl[0]+8, tl[1]-10);
 
-        // ═══ حساب الإحداثيات بالنسبة للمركز ═══
-        var offsetX = objCx - scx;      // + يعني يمين المركز
-        var offsetY = objCy - scy;      // + يعني أسفل المركز
-        var distance = Math.sqrt(offsetX*offsetX + offsetY*offsetY);
-        var angleDeg = Math.atan2(offsetY, offsetX) * 180 / Math.PI;
-        var compass = compassFromAngle(angleDeg);
+        // ═══ الحسابات بالنسبة لمركز الشاشة ═══
+        // إحداثيات الكائن بالنسبة لمركز الإطار (بكسل الفيديو)
+        var vcx = fit.vw / 2;
+        var vcy = fit.vh / 2;
+        var objVideoCx = x + w/2;
+        var objVideoCy = y + h/2;
 
-        // قياسات الكائن (بإحداثيات الفيديو الأصلية)
-        var area = w*h;
-        var zoom = lockData.startArea > 0 ? area/lockData.startArea : 1;
+        // الإزاحة عن المركز بوحدات بكسل الفيديو (أدق مقياس)
+        var relX = objVideoCx - vcx;   // + = يمين المركز
+        var relY = objVideoCy - vcy;   // + = أسفل المركز
 
-        // التغير اللحظي
-        var deltaOffsetX = 0, deltaOffsetY = 0, deltaDistance = 0;
-        var speed = 0, distSpeed = 0;
-        var dt = 0;
-
+        // التغير اللحظي (بين إطار وآخر) بالنسبة لمركز الشاشة
+        var deltaX = 0, deltaY = 0, dt = 0;
         if (isLive) {
           if (lockData.prevT > 0) {
             dt = Math.max(1, now - lockData.prevT);
-            deltaOffsetX = offsetX - lockData.prevOffsetX;
-            deltaOffsetY = offsetY - lockData.prevOffsetY;
-            var prevDist = Math.sqrt(
-              lockData.prevOffsetX*lockData.prevOffsetX +
-              lockData.prevOffsetY*lockData.prevOffsetY
-            );
-            deltaDistance = distance - prevDist;
-            speed = Math.sqrt(deltaOffsetX*deltaOffsetX + deltaOffsetY*deltaOffsetY) / dt * 1000;
-            distSpeed = deltaDistance / dt * 1000;
+            deltaX = relX - lockData.prevRelX;
+            deltaY = relY - lockData.prevRelY;
           }
-          lockData.prevOffsetX = offsetX;
-          lockData.prevOffsetY = offsetY;
+          lockData.prevRelX = relX;
+          lockData.prevRelY = relY;
           lockData.prevT = now;
-          if (area > lockData.peakArea) lockData.peakArea = area;
-          if (area < lockData.minArea) lockData.minArea = area;
         }
 
-        var totalArea = area - lockData.startArea;
-        var totalW = w - lockData.startW;
-        var totalH = h - lockData.startH;
+        // التغير الكلي منذ لحظة القفل
+        var totalX = relX - lockData.startRelX;
+        var totalY = relY - lockData.startRelY;
 
-        var zooming = totalArea > 0 ? 'يقترب' : (totalArea < 0 ? 'يبتعد' : 'ثابت');
-        var zoomColor = totalArea > 0 ? '#00ff88' : (totalArea < 0 ? '#ff5252' : '#888');
+        // مسافة الكائن عن المركز الآن
+        var distNow = Math.sqrt(relX*relX + relY*relY);
 
-        var moveArrow = '';
-        if (Math.abs(deltaOffsetX) > 1 || Math.abs(deltaOffsetY) > 1) {
-          moveArrow = compassFromAngle(Math.atan2(deltaOffsetY, deltaOffsetX) * 180 / Math.PI);
-        }
+        // سرعة التغير
+        var speedX = dt > 0 ? deltaX / dt * 1000 : 0;
+        var speedY = dt > 0 ? deltaY / dt * 1000 : 0;
 
         // ═══ لوحة المعلومات ═══
         panelEl.innerHTML =
-          '<b style="color:' + zoomColor + ';font-size:15px">' +
-          (totalArea > 0 ? '▼ ' : totalArea < 0 ? '▲ ' : '● ') + zooming +
-          '</b> <span class="zoom">· زوم ' + zoom.toFixed(2) + '×</span>' +
-          (isLive ? '' : ' <span class="stale">⏸ فقدان مؤقت</span>') + '<br>' +
+          '<div class="title">🎯 ' + (lockedTrack ? lockedTrack.label : lockData.label) +
+            ' · ثقة ' + ((lockedTrack ? lockedTrack.score : lockData.score)*100).toFixed(0) + '%' +
+            (isLive ? '' : ' · ⏸ فقدان مؤقت') + '</div>' +
 
           '<hr>' +
-          '<div class="row"><span>📍 مركز الكائن:</span><span>(' +
-            (x+w/2).toFixed(0) + '، ' + (y+h/2).toFixed(0) + ')</span></div>' +
-          '<div class="row"><span>🎯 مركز الشاشة:</span><span>(' +
-            (fit.vw/2).toFixed(0) + '، ' + (fit.vh/2).toFixed(0) + ')</span></div>' +
+
+          '<div class="line">' +
+            '<span class="label">📍 الموضع عن المركز — أفقي (X):</span>' +
+            '<span class="value ' + dirClass(relX) + '">' + fmt(relX) + ' · ' + dirTextX(relX) + '</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">📍 الموضع عن المركز — عمودي (Y):</span>' +
+            '<span class="value ' + dirClassY(relY) + '">' + fmt(relY) + ' · ' + dirTextY(relY) + '</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">📏 المسافة عن المركز:</span>' +
+            '<span class="value">' + absFmt(distNow) + ' px</span>' +
+          '</div>' +
 
           '<hr>' +
-          '<div class="row"><span>↔️ الانحراف عن المركز:</span><span>ΔX ' +
-            fmt(offsetX / fit.scale) + ' · ΔY ' + fmt(offsetY / fit.scale) + '</span></div>' +
-          '<div class="row"><span>📏 المسافة عن المركز:</span><span>' +
-            (distance / fit.scale).toFixed(0) + ' px</span></div>' +
-          '<div class="row"><span>🧭 الاتجاه:</span><span>' +
-            compass + ' ' + angleDeg.toFixed(0) + '°</span></div>' +
+
+          '<div class="line">' +
+            '<span class="label">⚡ التغير اللحظي — أفقي (ΔX):</span>' +
+            '<span class="value ' + dirClass(deltaX) + '">' + fmt(deltaX) + ' px</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">⚡ التغير اللحظي — عمودي (ΔY):</span>' +
+            '<span class="value ' + dirClassY(deltaY) + '">' + fmt(deltaY) + ' px</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">💨 سرعة التغير — أفقي:</span>' +
+            '<span class="value ' + dirClass(speedX) + '">' + fmt(speedX) + ' px/s</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">💨 سرعة التغير — عمودي:</span>' +
+            '<span class="value ' + dirClassY(speedY) + '">' + fmt(speedY) + ' px/s</span>' +
+          '</div>' +
 
           '<hr>' +
-          '<div class="row"><span>⚡ التغير اللحظي:</span><span>' + moveArrow + ' Δ ' +
-            fmt(deltaOffsetX / fit.scale) + ' · ' + fmt(deltaOffsetY / fit.scale) + '</span></div>' +
-          '<div class="row"><span>💨 سرعة الحركة:</span><span>' +
-            speed.toFixed(0) + ' px/s</span></div>' +
-          '<div class="row"><span>📈 تغير المسافة:</span><span style="color:' +
-            (distSpeed < 0 ? '#00ff88' : distSpeed > 0 ? '#ff5252' : '#888') + '">' +
-            (distSpeed < 0 ? '▼ ' : distSpeed > 0 ? '▲ ' : '● ') +
-            Math.abs(distSpeed).toFixed(0) + ' px/s</span></div>' +
 
-          '<hr>' +
-          '<div class="row"><span>📐 الحجم:</span><span>' +
-            w.toFixed(0) + '×' + h.toFixed(0) + ' px</span></div>' +
-          '<div class="row"><span>📊 المساحة:</span><span>' +
-            (area/1000).toFixed(1) + 'k px²</span></div>' +
-          '<div class="row"><span>📈 من القفل:</span><span>Δمساحة ' +
-            fmt(totalArea/1000) + 'k · Δحجم ' + fmt(totalW) + '/' + fmt(totalH) + '</span></div>' +
-          '<div class="row"><span>🏆 أقصى تقارب:</span><span>' +
-            (lockData.peakArea/1000).toFixed(1) + 'k px²</span></div>';
+          '<div class="line">' +
+            '<span class="label">📈 التغير الكلي — أفقي (ΣΔX):</span>' +
+            '<span class="value ' + dirClass(totalX) + '">' + fmt(totalX) + ' px</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">📈 التغير الكلي — عمودي (ΣΔY):</span>' +
+            '<span class="value ' + dirClassY(totalY) + '">' + fmt(totalY) + ' px</span>' +
+          '</div>' +
+          '<div class="line">' +
+            '<span class="label">📐 حجم الكائن:</span>' +
+            '<span class="value">' + w.toFixed(0) + ' × ' + h.toFixed(0) + ' px</span>' +
+          '</div>';
       }
     }
 
