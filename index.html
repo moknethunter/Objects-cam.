@@ -21,7 +21,6 @@
     padding:12px 22px; border-radius:22px; z-index:6; display:none;
     border:1.5px solid #00ff88; text-align:center; }
 
-  /* ═══ شريط البيانات الشفاف على يمين الصورة ═══ */
   #panel {
     position:absolute;
     right:6px;
@@ -43,24 +42,11 @@
     min-width:112px;
     max-width:132px;
   }
-  #panel .title {
-    color:#fff;
-    font-weight:800;
-    font-size:11px;
-    margin-bottom:5px;
-    padding-bottom:4px;
-    border-bottom:1px solid rgba(0,255,136,.3);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
-  #panel .row {
-    display:flex;
-    justify-content:space-between;
-    gap:6px;
-    margin:1px 0;
-    white-space:nowrap;
-  }
+  #panel .title { color:#fff; font-weight:800; font-size:11px; margin-bottom:5px;
+    padding-bottom:4px; border-bottom:1px solid rgba(0,255,136,.3);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #panel .row { display:flex; justify-content:space-between; gap:6px;
+    margin:1px 0; white-space:nowrap; }
   #panel .k { color:rgba(0,255,136,.7); font-size:9.5px; }
   #panel .v { color:#fff; font-weight:700; }
   #panel .v-right { color:#00e5ff; }
@@ -68,18 +54,9 @@
   #panel .v-down  { color:#ff5252; }
   #panel .v-up    { color:#b388ff; }
   #panel .v-zero  { color:#999; }
-  #panel .sep {
-    height:1px;
-    background:rgba(0,255,136,.25);
-    margin:4px 0;
-  }
-  #panel .sub {
-    color:rgba(0,255,136,.55);
-    font-size:9px;
-    letter-spacing:.5px;
-    margin-top:1px;
-    margin-bottom:1px;
-  }
+  #panel .sep { height:1px; background:rgba(0,255,136,.25); margin:4px 0; }
+  #panel .sub { color:rgba(0,255,136,.55); font-size:9px; letter-spacing:.5px;
+    margin-top:1px; margin-bottom:1px; }
 
   #resetBtn { position:absolute; top:44px; right:12px; color:#000; background:rgba(0,255,136,.9);
     border:none; padding:6px 12px; border-radius:16px; font:700 11px system-ui;
@@ -122,8 +99,13 @@ window.addEventListener('error', function(ev) {
 (function(){
   'use strict';
 
-  var SCORE_MIN = 0.35, SMOOTHING = 0.7, LOST_TIMEOUT = 3000;
-  var IOU_MIN = 0.15;
+  // ═══ إعدادات محسّنة ═══
+  var SCORE_MIN        = 0.35;   // عتبة الثقة
+  var SMOOTHING        = 0.5;    // أسرع استجابة (كان 0.7) → تتبع أدق للحركة
+  var LOST_TIMEOUT     = 3000;
+  var IOU_MIN          = 0.08;   // أكثر تسامحًا (كان 0.15) → استمرارية أفضل
+  var MAX_PREDICT_MS   = 500;    // التنبؤ بالحركة حتى 500ms
+  var BOX_INSET        = 0.88;   // تصغير الصندوق المرئي إلى 88% من الكشف
 
   var video = document.getElementById('video');
   var canvas = document.getElementById('overlay');
@@ -161,6 +143,7 @@ window.addEventListener('error', function(ev) {
   window.addEventListener('orientationchange', function(){ setTimeout(resize, 300); });
   resize();
 
+  // ═══ IoU بين صندوقين ═══
   function iou(a, b) {
     var x1 = Math.max(a[0], b[0]), y1 = Math.max(a[1], b[1]);
     var x2 = Math.min(a[0]+a[2], b[0]+b[2]);
@@ -169,10 +152,29 @@ window.addEventListener('error', function(ev) {
     var u = a[2]*a[3] + b[2]*b[3] - i;
     return u > 0 ? i/u : 0;
   }
+
+  // ═══ مسافة مركزية بين صندوقين (مساعد للتتبع الأدق) ═══
+  function centerDist(a, b) {
+    var ax = a[0] + a[2]/2, ay = a[1] + a[3]/2;
+    var bx = b[0] + b[2]/2, by = b[1] + b[3]/2;
+    return Math.sqrt((ax-bx)*(ax-bx) + (ay-by)*(ay-by));
+  }
+
+  // ═══ تنعيم EMA ═══
   function smooth(p, n) {
     var a = SMOOTHING, b = 1 - SMOOTHING;
     return [p[0]*a+n[0]*b, p[1]*a+n[1]*b, p[2]*a+n[2]*b, p[3]*a+n[3]*b];
   }
+
+  // ═══ تصغير الصندوق المرئي (تضييق داخلي) ═══
+  function insetBox(box, factor) {
+    var cx = box[0] + box[2]/2;
+    var cy = box[1] + box[3]/2;
+    var w = box[2] * factor;
+    var h = box[3] * factor;
+    return [cx - w/2, cy - h/2, w, h];
+  }
+
   function fmt(n) { return (n >= 0 ? '+' : '') + n.toFixed(0); }
   function absFmt(n) { return Math.abs(n).toFixed(0); }
 
@@ -319,15 +321,17 @@ window.addEventListener('error', function(ev) {
   });
   resetBtn.addEventListener('click', function(e){ e.stopPropagation(); unlock(); });
 
+  // ═══ صليب صغير وأنيق ═══
   function drawTargetCrosshair(cx, cy, size, live) {
     ctx.save();
     ctx.strokeStyle = live ? '#00ff88' : 'rgba(0,255,136,.65)';
     ctx.shadowColor = '#00ff88';
-    ctx.shadowBlur = live ? 10 : 5;
+    ctx.shadowBlur = live ? 8 : 4;
 
-    var gap = size*0.25, arm = size;
+    var gap = size*0.28, arm = size;
 
-    ctx.lineWidth = 2.5;
+    // 4 خطوط قصيرة
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx-arm, cy); ctx.lineTo(cx-gap, cy);
     ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+arm, cy);
@@ -335,18 +339,21 @@ window.addEventListener('error', function(ev) {
     ctx.moveTo(cx, cy+gap); ctx.lineTo(cx, cy+arm);
     ctx.stroke();
 
-    ctx.lineWidth = 2;
+    // دائرة صغيرة
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(cx, cy, gap*0.85, 0, Math.PI*2);
+    ctx.arc(cx, cy, gap*0.9, 0, Math.PI*2);
     ctx.stroke();
 
+    // نقطة مركزية
     ctx.fillStyle = live ? '#00ff88' : 'rgba(0,255,136,.65)';
     ctx.beginPath();
-    ctx.arc(cx, cy, 2.5, 0, Math.PI*2);
+    ctx.arc(cx, cy, 1.8, 0, Math.PI*2);
     ctx.fill();
 
-    ctx.lineWidth = 3;
-    var r2 = arm + 6, arcLen = Math.PI/4;
+    // 4 أقواس زاوية صغيرة
+    ctx.lineWidth = 2;
+    var r2 = arm + 3, arcLen = Math.PI/5;
     for (var k = 0; k < 4; k++) {
       var base = k*Math.PI/2 + Math.PI/4 - arcLen/2;
       ctx.beginPath();
@@ -362,9 +369,9 @@ window.addEventListener('error', function(ev) {
     ctx.fillStyle = 'rgba(255,235,59,.85)';
     ctx.shadowColor = '#ffeb3b';
     ctx.shadowBlur = 6;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
 
-    var s = 12, gap = 4;
+    var s = 10, gap = 3;
     ctx.beginPath();
     ctx.moveTo(cx-s, cy); ctx.lineTo(cx-gap, cy);
     ctx.moveTo(cx+gap, cy); ctx.lineTo(cx+s, cy);
@@ -373,7 +380,7 @@ window.addEventListener('error', function(ev) {
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(cx, cy, 2, 0, Math.PI*2);
+    ctx.arc(cx, cy, 1.5, 0, Math.PI*2);
     ctx.fill();
     ctx.restore();
   }
@@ -400,6 +407,7 @@ window.addEventListener('error', function(ev) {
     dets.sort(function(a,b){ return b.area - a.area; });
     dets = dets.slice(0, 5);
 
+    // ═══ مطابقة مُحسّنة: IoU + مسافة مركزية + تنبؤ بالسرعة ═══
     var used = [];
     for (var i = 0; i < tracks.length; i++) used.push(false);
     var fresh = [];
@@ -407,23 +415,94 @@ window.addEventListener('error', function(ev) {
     for (var i = 0; i < dets.length; i++) {
       var d = dets[i];
       var bi = -1, biou = IOU_MIN;
+      var bestDist = Infinity;
+
       for (var j = 0; j < tracks.length; j++) {
         if (used[j]) continue;
-        var v = iou(tracks[j].box, d.box);
-        if (v > biou) { biou = v; bi = j; }
+        var t = tracks[j];
+
+        // التنبؤ بالموضع المتوقع بناءً على السرعة
+        var predBox = t.box.slice();
+        if (t.velocity && t.lastSeen) {
+          var dtPredict = Math.min(MAX_PREDICT_MS, now - t.lastSeen);
+          predBox[0] += t.velocity[0] * dtPredict / 1000;
+          predBox[1] += t.velocity[1] * dtPredict / 1000;
+        }
+
+        // IoU مع الصندوق المتوقع (أدق من الحالي)
+        var v = iou(predBox, d.box);
+
+        // مسافة مركزية كمساعد
+        var cd = centerDist(t.box, d.box);
+        var cdNorm = cd / Math.max(t.box[2], t.box[3], 50);
+
+        // دمج: IoU مرتفع أو (مسافة صغيرة + حجم مشابه)
+        var sizeRatio = Math.min(t.box[2]*t.box[3], d.area) /
+                        Math.max(t.box[2]*t.box[3], d.area);
+
+        var score = v * 2 + (1 - Math.min(1, cdNorm)) * 0.5 + sizeRatio * 0.5;
+
+        if (score > biou || (v > IOU_MIN && cd < bestDist)) {
+          if (score > biou || (v > IOU_MIN && cd < bestDist * 0.8)) {
+            biou = Math.max(biou, score);
+            bi = j;
+            bestDist = cd;
+          }
+        }
       }
+
       if (bi >= 0) {
         used[bi] = true;
         var t = tracks[bi];
-        fresh.push({ id: t.id, box: smooth(t.box, d.box),
-                     label: d.label, score: d.score, lastSeen: now });
+        var smoothed = smooth(t.box, d.box);
+
+        // حساب السرعة الحالية
+        var vel = t.velocity || [0, 0];
+        if (t.lastSeen) {
+          var dtv = Math.max(1, now - t.lastSeen);
+          var vx = (d.box[0] - t.box[0]) / dtv * 1000;
+          var vy = (d.box[1] - t.box[1]) / dtv * 1000;
+          vel = [vel[0]*0.4 + vx*0.6, vel[1]*0.4 + vy*0.6];
+        }
+
+        fresh.push({
+          id: t.id,
+          box: smoothed,
+          label: d.label,
+          score: d.score,
+          lastSeen: now,
+          velocity: vel
+        });
       } else {
-        fresh.push({ id: nextId++, box: d.box.slice(),
-                     label: d.label, score: d.score, lastSeen: now });
+        fresh.push({
+          id: nextId++,
+          box: d.box.slice(),
+          label: d.label,
+          score: d.score,
+          lastSeen: now,
+          velocity: [0, 0]
+        });
       }
     }
+
+    // ═══ الاحتفاظ بالمسارات المفقودة مع التنبؤ ═══
     for (var i = 0; i < tracks.length; i++) {
-      if (!used[i] && now - tracks[i].lastSeen < LOST_TIMEOUT) fresh.push(tracks[i]);
+      if (used[i]) continue;
+      var t = tracks[i];
+      var age = now - t.lastSeen;
+      if (age < LOST_TIMEOUT) {
+        // تنبؤ: حرّك الصندوق حسب السرعة
+        var predBox = t.box.slice();
+        if (t.velocity) {
+          var dtP = Math.min(MAX_PREDICT_MS, age);
+          predBox[0] += t.velocity[0] * dtP / 1000;
+          predBox[1] += t.velocity[1] * dtP / 1000;
+        }
+        t.box = predBox;
+        // تقليل تدريجي للثقة
+        t.score *= 0.95;
+        fresh.push(t);
+      }
     }
     tracks = fresh;
 
@@ -450,24 +529,27 @@ window.addEventListener('error', function(ev) {
       var top = tracks.slice(0, 2);
       for (var i = 0; i < top.length; i++) {
         var t = top[i];
-        var x = t.box[0], y = t.box[1], w = t.box[2], h = t.box[3];
+        var tight = insetBox(t.box, BOX_INSET);   // صندوق مُصغّر
+        var x = tight[0], y = tight[1], w = tight[2], h = tight[3];
         var tl = v2c(x, y, fit);
         var br = v2c(x+w, y+h, fit);
         var dw = br[0]-tl[0], dh = br[1]-tl[1];
 
-        ctx.strokeStyle = 'rgba(0,255,136,.7)';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 6]);
+        ctx.strokeStyle = 'rgba(0,255,136,.75)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 5]);
         ctx.strokeRect(tl[0], tl[1], dw, dh);
         ctx.setLineDash([]);
 
-        var text = '#' + t.id + ' ' + t.label + ' ' + (t.score*100).toFixed(0) + '%';
-        ctx.font = 'bold 14px monospace';
-        var tw = ctx.measureText(text).width;
-        ctx.fillStyle = 'rgba(0,255,136,.85)';
-        ctx.fillRect(tl[0], tl[1]-24, tw+12, 24);
-        ctx.fillStyle = '#000';
-        ctx.fillText(text, tl[0]+6, tl[1]-7);
+        // زوايا صغيرة
+        var cl = Math.min(dw, dh) * 0.12;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(tl[0], tl[1]+cl); ctx.lineTo(tl[0], tl[1]); ctx.lineTo(tl[0]+cl, tl[1]);
+        ctx.moveTo(tl[0]+dw-cl, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]+cl);
+        ctx.moveTo(tl[0]+dw, tl[1]+dh-cl); ctx.lineTo(tl[0]+dw, tl[1]+dh); ctx.lineTo(tl[0]+dw-cl, tl[1]+dh);
+        ctx.moveTo(tl[0]+cl, tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh-cl);
+        ctx.stroke();
       }
     }
     // ═══ يوجد قفل ═══
@@ -476,7 +558,9 @@ window.addEventListener('error', function(ev) {
       var isLive = !!lockedTrack;
 
       if (drawBox) {
-        var x = drawBox[0], y = drawBox[1], w = drawBox[2], h = drawBox[3];
+        // صندوق مُصغّر
+        var tight = insetBox(drawBox, BOX_INSET);
+        var x = tight[0], y = tight[1], w = tight[2], h = tight[3];
         var tl = v2c(x, y, fit);
         var br = v2c(x+w, y+h, fit);
         var dw = br[0]-tl[0], dh = br[1]-tl[1];
@@ -487,8 +571,8 @@ window.addEventListener('error', function(ev) {
         // خط من المركز إلى الكائن
         ctx.save();
         ctx.strokeStyle = 'rgba(255,235,59,.4)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 6]);
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.moveTo(scx, scy);
         ctx.lineTo(objCx, objCy);
@@ -496,34 +580,44 @@ window.addEventListener('error', function(ev) {
         ctx.setLineDash([]);
         ctx.restore();
 
-        // إطار الكائن
+        // إطار الكائن (خط رفيع)
         ctx.strokeStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.5)';
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = 1.8;
         ctx.shadowColor = '#00ff88';
-        ctx.shadowBlur = isLive ? 15 : 4;
+        ctx.shadowBlur = isLive ? 10 : 3;
         ctx.strokeRect(tl[0], tl[1], dw, dh);
         ctx.shadowBlur = 0;
 
-        // صليب الكائن
-        var crossSize = Math.max(24, Math.min(dw, dh) * 0.28);
+        // زوايا مُقوّاة صغيرة
+        var cl = Math.min(dw, dh) * 0.14;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(tl[0], tl[1]+cl); ctx.lineTo(tl[0], tl[1]); ctx.lineTo(tl[0]+cl, tl[1]);
+        ctx.moveTo(tl[0]+dw-cl, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]); ctx.lineTo(tl[0]+dw, tl[1]+cl);
+        ctx.moveTo(tl[0]+dw, tl[1]+dh-cl); ctx.lineTo(tl[0]+dw, tl[1]+dh); ctx.lineTo(tl[0]+dw-cl, tl[1]+dh);
+        ctx.moveTo(tl[0]+cl, tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh); ctx.lineTo(tl[0], tl[1]+dh-cl);
+        ctx.stroke();
+
+        // صليب صغير
+        var crossSize = Math.max(14, Math.min(dw, dh) * 0.12);  // أصغر بكثير
         drawTargetCrosshair(objCx, objCy, crossSize, isLive);
 
-        // مركز الشاشة
+        // علامة مركز الشاشة
         drawScreenCenter(scx, scy);
 
-        // لافتة صغيرة فوق الكائن
+        // لافتة صغيرة جدًا
         var text = '🎯 ' + lockedLabel + ' ' + (lockedScore*100).toFixed(0) + '%';
-        ctx.font = 'bold 14px monospace';
+        ctx.font = 'bold 12px monospace';
         var tw = ctx.measureText(text).width;
-        ctx.fillStyle = isLive ? '#00ff88' : 'rgba(0,255,136,.65)';
-        ctx.fillRect(tl[0], tl[1]-26, tw+14, 26);
+        ctx.fillStyle = isLive ? 'rgba(0,255,136,.9)' : 'rgba(0,255,136,.6)';
+        ctx.fillRect(tl[0], tl[1]-22, tw+12, 22);
         ctx.fillStyle = '#000';
-        ctx.fillText(text, tl[0]+7, tl[1]-8);
+        ctx.fillText(text, tl[0]+6, tl[1]-7);
 
         // ═══ الحسابات ═══
         var vcx = fit.vw / 2, vcy = fit.vh / 2;
-        var relX = (x + w/2) - vcx;
-        var relY = (y + h/2) - vcy;
+        var relX = (drawBox[0] + drawBox[2]/2) - vcx;
+        var relY = (drawBox[1] + drawBox[3]/2) - vcy;
 
         var deltaX = 0, deltaY = 0;
         if (isLive) {
@@ -540,11 +634,9 @@ window.addEventListener('error', function(ev) {
         var totalY = relY - lockData.startRelY;
         var distNow = Math.sqrt(relX*relX + relY*relY);
 
-        // ═══ الشريط الشفاف على اليمين ═══
         panelEl.innerHTML =
           '<div class="title">🎯 ' + lockedLabel +
             (isLive ? '' : ' ⏸') + '</div>' +
-
           '<div class="row">' +
             '<span class="k">X</span>' +
             '<span class="v ' + classX(relX) + '">' +
@@ -559,9 +651,7 @@ window.addEventListener('error', function(ev) {
             '<span class="k">مسافة</span>' +
             '<span class="v">' + absFmt(distNow) + '</span>' +
           '</div>' +
-
           '<div class="sep"></div>' +
-
           '<div class="sub">لحظي</div>' +
           '<div class="row">' +
             '<span class="k">ΔX</span>' +
@@ -571,9 +661,7 @@ window.addEventListener('error', function(ev) {
             '<span class="k">ΔY</span>' +
             '<span class="v ' + classY(deltaY) + '">' + fmt(deltaY) + '</span>' +
           '</div>' +
-
           '<div class="sep"></div>' +
-
           '<div class="sub">كلي</div>' +
           '<div class="row">' +
             '<span class="k">ΣX</span>' +
